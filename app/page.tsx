@@ -11,7 +11,7 @@ import {
 import {
   collection, addDoc, getDocs, doc, setDoc, getDoc,
   query, orderBy, serverTimestamp, onSnapshot,
-  updateDoc, increment, where, deleteDoc, Timestamp,
+  updateDoc, increment, where, deleteDoc,
 } from 'firebase/firestore';
 
 const DEVELOPER_EMAIL = 'ascendmaxxforum@gmail.com';
@@ -45,6 +45,7 @@ const THREADMAXXER_COLORS = [
   { name: 'White',   value: '#f4f4f5' },
 ];
 
+// ── CHANGE 1: All rank labels now UPPERCASE, fixed label names ───────────────
 function getRank(total: number): { label: string; isThreadmaxxer: boolean } {
   if (total >= 200) return { label: 'THREADMAXXER', isThreadmaxxer: true };
   if (total >= 150) return { label: 'GREY',         isThreadmaxxer: false };
@@ -54,14 +55,21 @@ function getRank(total: number): { label: string; isThreadmaxxer: boolean } {
   return               { label: 'GREY+++',           isThreadmaxxer: false };
 }
 
+// ── CHANGE 2: RankTag now also handles the ADMIN default for developer ───────
+// tagLabel from Firestore takes priority, then rank label
 function RankTag({ total, color, bgColor, textColor, tagLabel, username }: {
   total: number; color?: string; bgColor?: string; textColor?: string; tagLabel?: string; username?: string;
 }) {
   const { label, isThreadmaxxer } = getRank(total);
+
+  // Developer account always defaults to ADMIN if no custom tagLabel set
   const isDev = username === DEVELOPER_USERNAME;
   const displayLabel = tagLabel || (isDev ? 'ADMIN' : label);
+
+  // Dev gets special styling if no custom colours set
   const isCustomOrThreadmaxxer = !!(tagLabel || bgColor || textColor) || isThreadmaxxer || isDev;
-  const defaultDevBg   = '#ef4444';
+
+  const defaultDevBg   = '#ef4444'; // red for admin
   const defaultDevText = '#ffffff';
 
   if (isCustomOrThreadmaxxer) {
@@ -144,6 +152,7 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
             {m.username}
           </button>
           <div className="flex items-center gap-2 mt-0.5">
+            {/* CHANGE 2: pass username so RankTag knows if it's the dev account */}
             <RankTag total={total} color={m.tagColor} bgColor={m.tagBgColor} textColor={m.tagTextColor} tagLabel={m.tagLabel} username={m.username} />
             <span className={`text-[10px] font-mono ${presenceMap[m.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>
               {presenceMap[m.uid] ? 'online' : 'offline'}
@@ -186,146 +195,6 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
         </>
       )}
     </div>
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FIX 1: DmChatWindow is a stable component defined OUTSIDE the main component.
-// This prevents React from remounting it on every parent re-render, which was
-// the root cause of the input focus-loss bug. Because it was a useCallback
-// inside the main component, any state change (like typing a character which
-// updates dmInput) caused the parent to re-render, produce a new component
-// function, and React would unmount/remount — killing focus every keystroke.
-// ─────────────────────────────────────────────────────────────────────────────
-const DmChatWindow = memo(function DmChatWindow({
-  activeConvo, messages, dmInput, setDmInput, sendDM, currentUid, messagesEndRef,
-}: {
-  activeConvo: any;
-  messages: any[];
-  dmInput: string;
-  setDmInput: (v: string) => void;
-  sendDM: () => void;
-  currentUid: string;
-  messagesEndRef: React.RefObject<any>;
-}) {
-  const handleKey = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDM(); }
-  }, [sendDM]);
-
-  return (
-    <>
-      <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ scrollbarWidth: 'none' }}>
-        {messages.length === 0 && (
-          <div className="text-center text-zinc-600 text-xs font-mono py-4">Say hello!</div>
-        )}
-        {messages.map(m => (
-          <div key={m.id} className={`flex ${m.senderUid === currentUid ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[75%] px-3 py-2 text-xs font-mono break-words ${
-              m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'
-            }`}>
-              {m.text}
-            </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-      <div className="px-3 py-2 border-t border-zinc-800 flex gap-2 flex-shrink-0">
-        {/* FIX 1: input is inside a stable memo component so it never loses focus */}
-        <input
-          value={dmInput}
-          onChange={e => setDmInput(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Message..."
-          className="flex-1 bg-zinc-900 border border-zinc-700 px-3 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600"
-        />
-        <button
-          onClick={sendDM}
-          className="bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-mono font-bold px-3 py-1.5 transition-colors">
-          Send
-        </button>
-      </div>
-    </>
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DmConvoList — stable component for the conversation list sidebar.
-// Also extracted so it doesn't remount on dmInput changes.
-// ─────────────────────────────────────────────────────────────────────────────
-const DmConvoList = memo(function DmConvoList({
-  conversations, activeConvo, setActiveConvo, currentUid,
-  dmSearch, setDmSearch, dmSearchResults, searchingUsers,
-  startDM, presenceMap,
-}: {
-  conversations: any[];
-  activeConvo: any;
-  setActiveConvo: (c: any) => void;
-  currentUid: string;
-  dmSearch: string;
-  setDmSearch: (v: string) => void;
-  dmSearchResults: any[];
-  searchingUsers: boolean;
-  startDM: (uid: string, username: string) => void;
-  presenceMap: Record<string, boolean>;
-}) {
-  return (
-    <>
-      <div className="p-2 border-b border-zinc-800 flex-shrink-0">
-        <input
-          value={dmSearch}
-          onChange={e => setDmSearch(e.target.value)}
-          placeholder="Search users..."
-          className="w-full bg-zinc-900 border border-zinc-700 px-2 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600"
-        />
-      </div>
-      <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'none' }}>
-        {dmSearch.trim() ? (
-          searchingUsers
-            ? <div className="text-zinc-600 text-xs font-mono text-center py-4">Searching...</div>
-            : dmSearchResults.length === 0
-              ? <div className="text-zinc-600 text-xs font-mono text-center py-4">No users found</div>
-              : dmSearchResults.map((u: any) => (
-                  <button key={u.uid} onClick={() => { setDmSearch(''); startDM(u.uid, u.username); }}
-                    className="w-full flex items-center gap-2 p-2 hover:bg-zinc-900 border-b border-zinc-800 text-left">
-                    <div className="relative flex-shrink-0">
-                      <Avatar src={u.avatar} username={u.username} size={28} />
-                      <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-zinc-950 ${presenceMap[u.uid] ? 'bg-emerald-400' : 'bg-zinc-700'}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-mono text-zinc-200 truncate">{u.username}</div>
-                      <div className={`text-[10px] font-mono ${presenceMap[u.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>
-                        {presenceMap[u.uid] ? 'online' : 'offline'}
-                      </div>
-                    </div>
-                  </button>
-                ))
-        ) : conversations.length === 0 ? (
-          <div className="p-4 text-zinc-600 text-xs font-mono text-center mt-8">
-            No messages yet.<br />Search for a user above.
-          </div>
-        ) : (
-          conversations.map(c => (
-            <button key={c.id} onClick={() => setActiveConvo(c)}
-              className={`w-full flex items-center gap-2 p-3 hover:bg-zinc-900 transition border-b border-zinc-800 ${activeConvo?.id === c.id ? 'bg-zinc-900' : ''}`}>
-              <div className="relative flex-shrink-0">
-                <Avatar src={c.otherUser?.avatar} username={c.otherUser?.username || '?'} size={28} />
-                {/* FIX 3: show online dot in convo list */}
-                <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-zinc-950 ${
-                  presenceMap[c.otherUser?.uid] ? 'bg-emerald-400' : 'bg-zinc-700'
-                }`} />
-              </div>
-              <div className="text-left min-w-0 flex-1">
-                <div className="text-xs font-mono text-zinc-200 truncate">{c.otherUser?.username}</div>
-                <div className="text-[10px] text-zinc-600 truncate font-mono">{c.lastMessage || 'No messages'}</div>
-              </div>
-              {c.lastSenderUid !== currentUid && !c.readBy?.[currentUid] && (
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full flex-shrink-0 ml-auto" />
-              )}
-            </button>
-          ))
-        )}
-      </div>
-    </>
   );
 });
 
@@ -388,8 +257,10 @@ export default function AscendMaxx() {
   const [showFollowers, setShowFollowers]       = useState(false);
   const [showFollowing, setShowFollowing]       = useState(false);
 
+  // CHANGE 3: Rep system state
   const [repGivenMap, setRepGivenMap] = useState<Record<string, boolean>>({});
 
+  // Dev tag editor
   const [showDevTagEditor, setShowDevTagEditor] = useState(false);
   const [devTagTarget, setDevTagTarget]         = useState<any>(null);
   const [devTagBgColor, setDevTagBgColor]       = useState('#3f3f46');
@@ -397,22 +268,16 @@ export default function AscendMaxx() {
   const [devTagLabel, setDevTagLabel]           = useState('');
   const [savingDevTag, setSavingDevTag]         = useState(false);
 
-  // FIX 1: showDmPanel (island) and activeConvo are kept as top-level state
   const [showDmPanel, setShowDmPanel]           = useState(false);
   const [conversations, setConversations]       = useState<any[]>([]);
   const [activeConvo, setActiveConvo]           = useState<any>(null);
   const [messages, setMessages]                 = useState<any[]>([]);
-  // FIX 1: dmInput lives here but is passed down — the key fix is that
-  // DmChatWindow is a stable memo component so changes to dmInput don't
-  // cause it to remount (no focus loss).
   const [dmInput, setDmInput]                   = useState('');
   const [dmUnread, setDmUnread]                 = useState(0);
   const [dmSearch, setDmSearch]                 = useState('');
   const [dmSearchResults, setDmSearchResults]   = useState<any[]>([]);
   const [searchingUsers, setSearchingUsers]     = useState(false);
   const messagesEndRef                          = useRef<any>(null);
-  // Separate refs for island vs full-page so scroll targets don't conflict
-  const messagesEndRefPage                      = useRef<any>(null);
 
   const [totalUsers, setTotalUsers]     = useState(0);
   const [latestUser, setLatestUser]     = useState<any>(null);
@@ -534,28 +399,18 @@ export default function AscendMaxx() {
     return () => unsub();
   }, []);
 
-  // ── FIX 3: Conversations listener — now enriches otherUser with uid so we
-  // can look up presence status; also works for BOTH participants automatically
-  // because Firestore's array-contains query matches for any user in the array.
-  // The bug where the recipient didn't see DMs was caused by lastMessageAt
-  // being null on the client before Firestore resolved serverTimestamp(),
-  // which broke the orderBy query. Fixed by using a client Timestamp fallback.
   useEffect(() => {
     if (!currentUid) { setConversations([]); return; }
     const unsub = onSnapshot(
-      query(
-        collection(db, 'conversations'),
-        where('participants', 'array-contains', currentUid),
-        orderBy('lastMessageAt', 'desc')
-      ),
+      query(collection(db, 'conversations'), where('participants', 'array-contains', currentUid), orderBy('lastMessageAt', 'desc')),
       async (snap) => {
         const convos = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           const otherUid = data.participants.find((p: string) => p !== currentUid);
-          let otherUser: any = { username: 'Unknown', avatar: '', uid: otherUid };
+          let otherUser: any = { username: 'Unknown', avatar: '' };
           try {
             const userSnap = await getDoc(doc(db, 'users', otherUid));
-            if (userSnap.exists()) otherUser = { uid: otherUid, ...userSnap.data() };
+            if (userSnap.exists()) otherUser = userSnap.data();
           } catch {}
           return { id: d.id, ...data, otherUser };
         }));
@@ -566,18 +421,13 @@ export default function AscendMaxx() {
     return () => unsub();
   }, [currentUid]);
 
-  // Messages listener — shared between island and full page
   useEffect(() => {
     if (!activeConvo) { setMessages([]); return; }
     const unsub = onSnapshot(
       query(collection(db, 'conversations', activeConvo.id, 'messages'), orderBy('createdAt', 'asc')),
       (snap) => {
         setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        // Scroll both targets
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-          messagesEndRefPage.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
       }
     );
     updateDoc(doc(db, 'conversations', activeConvo.id), { [`readBy.${currentUid}`]: true }).catch(() => {});
@@ -635,6 +485,7 @@ export default function AscendMaxx() {
     return () => window.removeEventListener('beforeunload', handleUnload);
   }, [currentUid]);
 
+  // CHANGE 3: Load which users current user has already repped
   useEffect(() => {
     if (!currentUid) { setRepGivenMap({}); return; }
     const unsub = onSnapshot(collection(db, 'users', currentUid, 'repGiven'), (snap) => {
@@ -661,6 +512,7 @@ export default function AscendMaxx() {
       await setDoc(doc(db, 'users', uid), {
         username, email, bio: '', avatar: '', tagColor: '',
         tagBgColor: '', tagTextColor: '', tagLabel: '',
+        // CHANGE 4: Initialize counters correctly
         threadCount: 0, replyCount: 0, rep: 0, createdAt: serverTimestamp(),
       });
       await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid });
@@ -705,6 +557,7 @@ export default function AscendMaxx() {
         authorAvatar: currentUserData?.avatar || '',
         images: newThreadImages, replies: 0, views: 1, createdAt: serverTimestamp(),
       });
+      // CHANGE 4: increment threadCount correctly
       await updateDoc(doc(db, 'users', currentUid), { threadCount: increment(1) });
       setShowNewThreadModal(false); setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]);
     } catch { alert('Failed to post. Try again.'); }
@@ -742,25 +595,37 @@ export default function AscendMaxx() {
         authorAvatar: currentUserData?.avatar || '', createdAt: serverTimestamp(),
       });
       if (threadId !== 'ann-1') await updateDoc(doc(db, 'threads', threadId), { replies: increment(1) });
+      // CHANGE 4: increment replyCount so the message counter works
       await updateDoc(doc(db, 'users', currentUid), { replyCount: increment(1) });
       setReplyText('');
     } catch { alert('Failed to post reply.'); }
     setPostingReply(false);
   };
 
+  // CHANGE 3: Rep system — give +1 rep, one rep per user per user
   const giveRep = async (targetUid: string) => {
     if (!currentUid || !isLoggedIn) { setShowLogin(true); return; }
-    if (targetUid === currentUid) return;
-    if (repGivenMap[targetUid]) return;
+    if (targetUid === currentUid) return; // can't rep yourself
+    if (repGivenMap[targetUid]) return;   // already repped this user
+
     try {
-      await setDoc(doc(db, 'users', currentUid, 'repGiven', targetUid), { givenAt: serverTimestamp() });
+      // Record that this user gave rep to target
+      await setDoc(doc(db, 'users', currentUid, 'repGiven', targetUid), {
+        givenAt: serverTimestamp(),
+      });
+      // Increment target's rep count
       await updateDoc(doc(db, 'users', targetUid), { rep: increment(1) });
+
+      // Update viewingProfile optimistically
       setViewingProfile((prev: any) => prev ? { ...prev, rep: (prev.rep || 0) + 1 } : prev);
+      // Update threadUserCache optimistically
       setThreadUserCache(prev => ({
         ...prev,
         [targetUid]: { ...prev[targetUid], rep: ((prev[targetUid]?.rep) || 0) + 1 },
       }));
-    } catch (e) { console.error('Failed to give rep:', e); }
+    } catch (e) {
+      console.error('Failed to give rep:', e);
+    }
   };
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -860,72 +725,38 @@ export default function AscendMaxx() {
   };
 
   // ── DMs ───────────────────────────────────────────────────────────────────
-  // FIX 3: startDM now always creates the conversation with a real client-side
-  // timestamp so the orderBy('lastMessageAt') query works immediately for BOTH
-  // participants without waiting for Firestore to resolve serverTimestamp().
-  // This is what caused the recipient to never see the conversation appear.
   const startDM = useCallback(async (otherUid: string, otherUsername: string) => {
     if (!currentUid) { setShowLogin(true); return; }
     if (otherUid === currentUid) return;
-
-    // Check if conversation already exists
-    const snap = await getDocs(query(
-      collection(db, 'conversations'),
-      where('participants', 'array-contains', currentUid)
-    ));
+    const snap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', currentUid)));
     const existing = snap.docs.find(d => d.data().participants.includes(otherUid));
-
     if (existing) {
       const data = existing.data();
       const otherUserSnap = await getDoc(doc(db, 'users', otherUid));
-      const otherUser = otherUserSnap.exists()
-        ? { uid: otherUid, ...otherUserSnap.data() }
-        : { uid: otherUid, username: otherUsername };
+      const otherUser = otherUserSnap.exists() ? otherUserSnap.data() : { username: otherUsername };
       setActiveConvo({ id: existing.id, ...data, otherUser });
       setShowDmPanel(true); setViewingProfile(null); return;
     }
-
-    // FIX 3: Use Timestamp.now() as the initial value so orderBy works
-    // immediately on both sides without waiting for server resolution.
-    const nowTs = Timestamp.now();
     const docRef = await addDoc(collection(db, 'conversations'), {
       participants: [currentUid, otherUid],
       participantNames: { [currentUid]: currentUser, [otherUid]: otherUsername },
-      lastMessage: '',
-      lastMessageAt: nowTs,   // ← real timestamp, not serverTimestamp()
-      lastSenderUid: '',
+      lastMessage: '', lastMessageAt: serverTimestamp(), lastSenderUid: '',
       readBy: { [currentUid]: true, [otherUid]: false },
     });
-
-    const otherUserSnap = await getDoc(doc(db, 'users', otherUid));
-    const otherUser = otherUserSnap.exists()
-      ? { uid: otherUid, ...otherUserSnap.data() }
-      : { uid: otherUid, username: otherUsername };
-
-    setActiveConvo({
-      id: docRef.id,
-      participants: [currentUid, otherUid],
-      lastMessageAt: nowTs,
-      otherUser,
-    });
+    setActiveConvo({ id: docRef.id, participants: [currentUid, otherUid], otherUser: { username: otherUsername } });
     setShowDmPanel(true); setViewingProfile(null);
   }, [currentUid, currentUser]);
 
-  // FIX 1: sendDM is stable (only depends on stable refs/values via closure)
   const sendDM = useCallback(async () => {
     if (!dmInput.trim() || !activeConvo) return;
-    const text = dmInput.trim();
-    setDmInput('');
+    const text = dmInput.trim(); setDmInput('');
     const otherUid = activeConvo.participants?.find((p: string) => p !== currentUid) || '';
     await addDoc(collection(db, 'conversations', activeConvo.id, 'messages'), {
       text, senderUid: currentUid, senderName: currentUser, createdAt: serverTimestamp(),
     });
     await updateDoc(doc(db, 'conversations', activeConvo.id), {
-      lastMessage: text,
-      lastMessageAt: serverTimestamp(),
-      lastSenderUid: currentUid,
-      [`readBy.${currentUid}`]: true,
-      [`readBy.${otherUid}`]: false,
+      lastMessage: text, lastMessageAt: serverTimestamp(), lastSenderUid: currentUid,
+      [`readBy.${currentUid}`]: true, [`readBy.${otherUid}`]: false,
     });
   }, [dmInput, activeConvo, currentUid, currentUser]);
 
@@ -1022,9 +853,12 @@ export default function AscendMaxx() {
     const isAnn = viewingThread.id === 'ann-1';
     const opUserData = threadUserCache[viewingThread.authorUid || ''] || null;
 
+    // CHANGE 3 + CHANGE 4 + CHANGE 2: PostRow now shows Messages AND Rep, with correct counts and UPPERCASE tags
     const PostRow = ({ userData, authorName, authorAvatar, authorUid, date, text, images, postNum }: any) => {
       const total = (userData?.threadCount || 0) + (userData?.replyCount || 0);
       const repCount = userData?.rep || 0;
+      const canRep = isLoggedIn && currentUid && authorUid && authorUid !== currentUid && !repGivenMap[authorUid];
+      const alreadyRepped = !!repGivenMap[authorUid];
 
       return (
         <div className="flex border-b border-zinc-800">
@@ -1036,11 +870,14 @@ export default function AscendMaxx() {
               className="text-emerald-400 text-xs font-mono font-bold hover:underline truncate w-full text-center mb-1">
               {authorName}
             </button>
+            {/* CHANGE 2: pass username for dev ADMIN tag */}
             <RankTag total={total} color={userData?.tagColor} bgColor={userData?.tagBgColor} textColor={userData?.tagTextColor} tagLabel={userData?.tagLabel} username={authorName} />
             <div className="mt-2 w-full space-y-1">
+              {/* CHANGE 4: Messages counter — shows threadCount + replyCount */}
               <div className="text-[9px] font-mono text-zinc-600">
                 Messages: <span className="text-zinc-400">{total}</span>
               </div>
+              {/* CHANGE 3: Rep counter in post sidebar */}
               <div className="text-[9px] font-mono text-zinc-600">
                 Rep: <span className="text-amber-400 font-bold">{repCount}</span>
               </div>
@@ -1207,10 +1044,8 @@ export default function AscendMaxx() {
     </div>
   ), [selectedForum, StatsPanel]);
 
-  // ── FIX 1: DmPanel (floating island) — now uses stable child components.
-  // dmInput and sendDM are passed as props so DmChatWindow never remounts.
-  // ─────────────────────────────────────────────────────────────────────────
-  const DmPanel = () => (
+  // ── DmPanel ───────────────────────────────────────────────────────────────
+  const DmPanel = useCallback(() => (
     <div className="fixed bottom-14 sm:bottom-16 right-4 sm:right-6 w-80 sm:w-96 bg-zinc-950 border border-zinc-800 shadow-2xl z-[200] flex flex-col" style={{ maxHeight: '70vh' }}>
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800 flex-shrink-0">
         <span className="font-mono text-xs uppercase tracking-widest text-zinc-300 font-bold">Messages</span>
@@ -1218,53 +1053,86 @@ export default function AscendMaxx() {
           {activeConvo && (
             <button onClick={() => setActiveConvo(null)} className="text-zinc-600 hover:text-zinc-300 text-[10px] font-mono">← back</button>
           )}
-          <button onClick={() => setShowDmPanel(false)} className="text-zinc-600 hover:text-zinc-300 font-mono text-sm">×</button>
+          <button onClick={() => setShowDmPanel(false)} className="text-zinc-600 hover:text-zinc-300 font-mono text-sm">x</button>
         </div>
       </div>
 
       {!activeConvo ? (
-        // Conversation list
-        <DmConvoList
-          conversations={conversations}
-          activeConvo={activeConvo}
-          setActiveConvo={setActiveConvo}
-          currentUid={currentUid}
-          dmSearch={dmSearch}
-          setDmSearch={setDmSearch}
-          dmSearchResults={dmSearchResults}
-          searchingUsers={searchingUsers}
-          startDM={startDM}
-          presenceMap={presenceMap}
-        />
+        <>
+          <div className="px-3 py-2 border-b border-zinc-800 flex-shrink-0">
+            <input value={dmSearch} onChange={e => setDmSearch(e.target.value)}
+              placeholder="Search users to message..."
+              className="w-full bg-zinc-900 border border-zinc-700 px-3 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600" />
+          </div>
+          <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'none' }}>
+            {dmSearch.trim() ? (
+              searchingUsers
+                ? <div className="text-zinc-600 text-xs font-mono text-center py-4">Searching...</div>
+                : dmSearchResults.length === 0
+                  ? <div className="text-zinc-600 text-xs font-mono text-center py-4">No users found</div>
+                  : (
+                    <>
+                      <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-zinc-800">Users</div>
+                      {dmSearchResults.map((u: any) => (
+                        <button key={u.uid} onClick={() => { setDmSearch(''); startDM(u.uid, u.username); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-zinc-800/50 hover:bg-zinc-900 transition text-left">
+                          <Avatar src={u.avatar} username={u.username} size={28} />
+                          <div>
+                            <div className="text-xs font-mono text-zinc-200">{u.username}</div>
+                            <div className={`text-[10px] font-mono ${presenceMap[u.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>
+                              {presenceMap[u.uid] ? 'online' : 'offline'}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )
+            ) : conversations.length === 0 ? (
+              <div className="text-zinc-600 text-xs font-mono text-center py-8">
+                No conversations yet.<br />Search for a user to start messaging.
+              </div>
+            ) : conversations.map(c => (
+              <button key={c.id} onClick={() => setActiveConvo(c)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-zinc-800/50 hover:bg-zinc-900 transition text-left">
+                <Avatar src={c.otherUser?.avatar} username={c.otherUser?.username || '?'} size={32} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-mono text-zinc-200 truncate">{c.otherUser?.username}</div>
+                  <div className="text-[10px] text-zinc-600 truncate font-mono">{c.lastMessage || 'No messages yet'}</div>
+                </div>
+                {c.lastSenderUid !== currentUid && !c.readBy?.[currentUid] && (
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </>
       ) : (
-        // Active chat
         <>
           <div className="px-3 py-2 border-b border-zinc-800 flex items-center gap-2 flex-shrink-0">
-            <div className="relative flex-shrink-0">
-              <Avatar src={activeConvo.otherUser?.avatar} username={activeConvo.otherUser?.username || '?'} size={24} />
-              <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-zinc-950 ${
-                presenceMap[activeConvo.otherUser?.uid] ? 'bg-emerald-400' : 'bg-zinc-700'
-              }`} />
-            </div>
+            <Avatar src={activeConvo.otherUser?.avatar} username={activeConvo.otherUser?.username || '?'} size={24} />
             <span className="font-mono text-xs text-zinc-200">{activeConvo.otherUser?.username}</span>
-            <span className={`ml-auto text-[10px] font-mono ${presenceMap[activeConvo.otherUser?.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>
-              {presenceMap[activeConvo.otherUser?.uid] ? 'online' : 'offline'}
-            </span>
           </div>
-          {/* FIX 1: DmChatWindow is a stable memo — typing won't lose focus */}
-          <DmChatWindow
-            activeConvo={activeConvo}
-            messages={messages}
-            dmInput={dmInput}
-            setDmInput={setDmInput}
-            sendDM={sendDM}
-            currentUid={currentUid}
-            messagesEndRef={messagesEndRef}
-          />
+          <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ scrollbarWidth: 'none' }}>
+            {messages.length === 0 && <div className="text-center text-zinc-600 text-xs font-mono py-4">Say hello!</div>}
+            {messages.map(m => (
+              <div key={m.id} className={`flex ${m.senderUid === currentUid ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[75%] px-3 py-2 text-xs font-mono break-words ${m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="px-3 py-2 border-t border-zinc-800 flex gap-2 flex-shrink-0">
+            <input value={dmInput} onChange={e => setDmInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
+              className="flex-1 bg-zinc-900 border border-zinc-700 px-3 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600" />
+            <button onClick={sendDM} className="bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-mono font-bold px-3 py-1.5 transition-colors">Send</button>
+          </div>
         </>
       )}
     </div>
-  );
+  ), [activeConvo, dmSearch, searchingUsers, dmSearchResults, conversations, messages, dmInput, presenceMap, currentUid, startDM, sendDM]);
 
   if (authLoading) return (
     <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
@@ -1279,7 +1147,7 @@ export default function AscendMaxx() {
       <div className={`fixed top-0 left-0 h-full w-64 bg-zinc-950 border-r border-zinc-800 z-[70] overflow-y-auto transform transition-transform duration-200 lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{ scrollbarWidth: 'none' }}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
           <span className="text-emerald-500 font-mono font-bold text-sm tracking-widest">ASCENDMAXX</span>
-          <button onClick={() => setSidebarOpen(false)} className="text-zinc-500 hover:text-zinc-200 text-lg font-mono">×</button>
+          <button onClick={() => setSidebarOpen(false)} className="text-zinc-500 hover:text-zinc-200 text-lg font-mono">x</button>
         </div>
         <SidebarContent />
       </div>
@@ -1344,7 +1212,6 @@ export default function AscendMaxx() {
         </div>
       </nav>
 
-      {/* FIX 1: Island floats independently of the page view */}
       {showDmPanel && isLoggedIn && <DmPanel />}
 
       <div className="max-w-7xl mx-auto flex">
@@ -1431,82 +1298,70 @@ export default function AscendMaxx() {
             </div>
           )}
 
-          {/* ── FIX 2: Full-page DMs — proper layout using stable subcomponents ── */}
           {currentView === 'dms' && (
-            <div className="flex flex-col" style={{ height: 'calc(100vh - 2.75rem - 2.5rem)' }}>
-              {/* Header */}
-              <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
+            <div>
+              <div className="px-4 py-3 border-b border-zinc-800">
                 <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Direct Messages</h2>
-                {activeConvo && (
-                  <button onClick={() => setActiveConvo(null)}
-                    className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 uppercase tracking-widest sm:hidden">
-                    ← Back
-                  </button>
-                )}
               </div>
-
               {!isLoggedIn ? (
-                <div className="flex-1 flex items-center justify-center text-zinc-600 font-mono text-xs">
-                  Log in to use direct messages.
-                </div>
+                <div className="text-center py-20 text-zinc-600 font-mono text-xs">Log in to use direct messages.</div>
               ) : (
-                <div className="flex flex-1 overflow-hidden">
-
-                  {/* Left column — conversation list (hidden on mobile when chat open) */}
-                  <div className={`${activeConvo ? 'hidden sm:flex' : 'flex'} flex-col w-full sm:w-64 lg:w-72 flex-shrink-0 border-r border-zinc-800 overflow-hidden`}>
-                    <DmConvoList
-                      conversations={conversations}
-                      activeConvo={activeConvo}
-                      setActiveConvo={setActiveConvo}
-                      currentUid={currentUid}
-                      dmSearch={dmSearch}
-                      setDmSearch={setDmSearch}
-                      dmSearchResults={dmSearchResults}
-                      searchingUsers={searchingUsers}
-                      startDM={startDM}
-                      presenceMap={presenceMap}
-                    />
+                <div className="flex h-[calc(100vh-7rem)]">
+                  <div className="w-44 sm:w-56 flex-shrink-0 border-r border-zinc-800 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                    <div className="p-2 border-b border-zinc-800">
+                      <input value={dmSearch} onChange={e => setDmSearch(e.target.value)} placeholder="Search users..."
+                        className="w-full bg-zinc-900 border border-zinc-700 px-2 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600" />
+                    </div>
+                    {dmSearch.trim()
+                      ? dmSearchResults.map((u: any) => (
+                          <button key={u.uid} onClick={() => { setDmSearch(''); startDM(u.uid, u.username); }}
+                            className="w-full flex items-center gap-2 p-2 hover:bg-zinc-900 border-b border-zinc-800 text-left">
+                            <Avatar src={u.avatar} username={u.username} size={24} />
+                            <span className="text-xs font-mono text-zinc-300 truncate">{u.username}</span>
+                          </button>
+                        ))
+                      : conversations.length === 0
+                        ? <div className="p-4 text-zinc-600 text-xs font-mono text-center mt-8">No messages yet.</div>
+                        : conversations.map(c => (
+                            <button key={c.id} onClick={() => setActiveConvo(c)}
+                              className={`w-full flex items-center gap-2 p-3 hover:bg-zinc-900 transition border-b border-zinc-800 ${activeConvo?.id === c.id ? 'bg-zinc-900' : ''}`}>
+                              <Avatar src={c.otherUser?.avatar} username={c.otherUser?.username || '?'} size={28} />
+                              <div className="text-left min-w-0">
+                                <div className="text-xs font-mono text-zinc-200 truncate">{c.otherUser?.username}</div>
+                                <div className="text-[10px] text-zinc-600 truncate font-mono">{c.lastMessage || 'No messages'}</div>
+                              </div>
+                              {c.lastSenderUid !== currentUid && !c.readBy?.[currentUid] && (
+                                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full flex-shrink-0 ml-auto" />
+                              )}
+                            </button>
+                          ))
+                    }
                   </div>
-
-                  {/* Right column — chat area */}
-                  <div className={`${activeConvo ? 'flex' : 'hidden sm:flex'} flex-1 flex-col overflow-hidden`}>
+                  <div className="flex-1 flex flex-col overflow-hidden">
                     {!activeConvo ? (
-                      <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 text-xs font-mono gap-2">
-                        <span className="text-2xl">💬</span>
-                        <span>Select a conversation or search for a user</span>
-                      </div>
+                      <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs font-mono">Select a conversation</div>
                     ) : (
                       <>
-                        {/* Chat header with back button on desktop too */}
-                        <div className="px-4 py-2.5 border-b border-zinc-800 flex items-center gap-3 flex-shrink-0">
-                          <button onClick={() => setActiveConvo(null)}
-                            className="hidden sm:block text-[10px] font-mono text-zinc-600 hover:text-zinc-300 uppercase tracking-widest mr-1">
-                            ←
-                          </button>
-                          <div className="relative flex-shrink-0">
-                            <Avatar src={activeConvo.otherUser?.avatar} username={activeConvo.otherUser?.username || '?'} size={32} />
-                            <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-zinc-900 ${
-                              presenceMap[activeConvo.otherUser?.uid] ? 'bg-emerald-400' : 'bg-zinc-600'
-                            }`} />
-                          </div>
-                          <div>
-                            <div className="font-mono text-sm text-zinc-200">{activeConvo.otherUser?.username}</div>
-                            <div className={`text-[10px] font-mono ${presenceMap[activeConvo.otherUser?.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>
-                              {presenceMap[activeConvo.otherUser?.uid] ? 'online' : 'offline'}
-                            </div>
-                          </div>
+                        <div className="px-4 py-2.5 border-b border-zinc-800 flex items-center gap-2">
+                          <Avatar src={activeConvo.otherUser?.avatar} username={activeConvo.otherUser?.username || '?'} size={24} />
+                          <span className="font-mono text-sm text-zinc-200">{activeConvo.otherUser?.username}</span>
                         </div>
-
-                        {/* FIX 1: DmChatWindow stable component — no focus loss */}
-                        <DmChatWindow
-                          activeConvo={activeConvo}
-                          messages={messages}
-                          dmInput={dmInput}
-                          setDmInput={setDmInput}
-                          sendDM={sendDM}
-                          currentUid={currentUid}
-                          messagesEndRef={messagesEndRefPage}
-                        />
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ scrollbarWidth: 'none' }}>
+                          {messages.map(m => (
+                            <div key={m.id} className={`flex ${m.senderUid === currentUid ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[70%] px-3 py-2 text-xs font-mono ${m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
+                                {m.text}
+                              </div>
+                            </div>
+                          ))}
+                          <div ref={messagesEndRef} />
+                        </div>
+                        <div className="px-3 py-2 border-t border-zinc-800 flex gap-2">
+                          <input value={dmInput} onChange={e => setDmInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
+                            className={`${inputCls} flex-1`} />
+                          <button onClick={sendDM} className={btnPrimary}>Send</button>
+                        </div>
                       </>
                     )}
                   </div>
@@ -1552,6 +1407,7 @@ export default function AscendMaxx() {
       {viewingProfile && (() => {
         const profTotal = (viewingProfile.threadCount || 0) + (viewingProfile.replyCount || 0);
         const profRep = viewingProfile.rep || 0;
+        const canRepProfile = isLoggedIn && currentUid && viewingProfile.uid !== currentUid && !repGivenMap[viewingProfile.uid];
         const alreadyReppedProfile = !!repGivenMap[viewingProfile.uid];
 
         return (
@@ -1562,6 +1418,7 @@ export default function AscendMaxx() {
                 <div>
                   <div className="font-mono font-bold text-zinc-100">{viewingProfile.username}</div>
                   <div className="mt-1">
+                    {/* CHANGE 1 + 2: Pass username so dev gets ADMIN tag correctly */}
                     <RankTag total={profTotal} color={viewingProfile.tagColor} bgColor={viewingProfile.tagBgColor} textColor={viewingProfile.tagTextColor} tagLabel={viewingProfile.tagLabel} username={viewingProfile.username} />
                   </div>
                   <div className="text-[10px] font-mono text-zinc-600 mt-1">
@@ -1578,7 +1435,7 @@ export default function AscendMaxx() {
                     Edit Tag
                   </button>
                 )}
-                <button onClick={() => setViewingProfile(null)} className="text-zinc-600 hover:text-zinc-300 font-mono text-sm">×</button>
+                <button onClick={() => setViewingProfile(null)} className="text-zinc-600 hover:text-zinc-300 font-mono text-sm">x</button>
               </div>
             </div>
 
@@ -1588,6 +1445,7 @@ export default function AscendMaxx() {
               </div>
             )}
 
+            {/* CHANGE 3: Rep display and Rep+1 button in profile */}
             <div className="px-5 py-3 border-b border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="text-center">
@@ -1599,6 +1457,7 @@ export default function AscendMaxx() {
                   <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Messages</div>
                 </div>
               </div>
+              {/* Rep+1 button — only shows when logged in and viewing someone else's profile */}
               {isLoggedIn && viewingProfile.uid !== currentUid && (
                 <button
                   onClick={() => giveRep(viewingProfile.uid)}
@@ -1607,7 +1466,8 @@ export default function AscendMaxx() {
                     alreadyReppedProfile
                       ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
                       : 'border-amber-700 text-amber-400 hover:bg-amber-950 hover:border-amber-500'
-                  }`}>
+                  }`}
+                  title={alreadyReppedProfile ? 'Already repped' : 'Give +1 rep'}>
                   {alreadyReppedProfile ? '✓ Repped' : '▲ Rep +1'}
                 </button>
               )}
@@ -1669,7 +1529,7 @@ export default function AscendMaxx() {
           <div className="bg-zinc-950 border border-zinc-800 w-full max-w-sm my-4">
             <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
               <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Edit Tag — {devTagTarget.username}</span>
-              <button onClick={() => setShowDevTagEditor(false)} className="text-zinc-600 font-mono text-sm">×</button>
+              <button onClick={() => setShowDevTagEditor(false)} className="text-zinc-600 font-mono text-sm">x</button>
             </div>
             <div className="p-5 space-y-5">
               <div className="flex items-center gap-3 p-3 bg-zinc-900/50 border border-zinc-800">
@@ -1686,9 +1546,13 @@ export default function AscendMaxx() {
                 <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">
                   Custom Tag Text <span className="text-zinc-700 normal-case">(leave blank for default rank)</span>
                 </label>
-                <input type="text" value={devTagLabel} onChange={e => setDevTagLabel(e.target.value)}
+                <input
+                  type="text"
+                  value={devTagLabel}
+                  onChange={e => setDevTagLabel(e.target.value)}
                   placeholder="e.g. Admin, Mod, Legend..."
-                  className="w-full bg-black border border-zinc-700 px-3 py-2 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600" />
+                  className="w-full bg-black border border-zinc-700 px-3 py-2 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600"
+                />
                 {devTagLabel && (
                   <button onClick={() => setDevTagLabel('')} className="mt-1 text-[10px] font-mono text-zinc-600 hover:text-red-400 transition">
                     clear (revert to rank)
@@ -1721,10 +1585,10 @@ export default function AscendMaxx() {
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { name: 'White', value: '#ffffff' }, { name: 'Black', value: '#000000' },
-                    { name: 'Zinc',  value: '#d4d4d8' }, { name: 'Emerald', value: '#10b981' },
-                    { name: 'Sky',   value: '#0ea5e9' }, { name: 'Rose',  value: '#f43f5e' },
-                    { name: 'Amber', value: '#f59e0b' }, { name: 'Violet', value: '#8b5cf6' },
+                    { name: 'White',   value: '#ffffff' }, { name: 'Black',   value: '#000000' },
+                    { name: 'Zinc',    value: '#d4d4d8' }, { name: 'Emerald', value: '#10b981' },
+                    { name: 'Sky',     value: '#0ea5e9' }, { name: 'Rose',    value: '#f43f5e' },
+                    { name: 'Amber',   value: '#f59e0b' }, { name: 'Violet',  value: '#8b5cf6' },
                   ].map(c => (
                     <button key={c.value} onClick={() => setDevTagTextColor(c.value)}
                       className={`w-6 h-6 rounded-sm border-2 transition-all ${devTagTextColor === c.value ? 'border-emerald-400 scale-110' : 'border-zinc-700'}`}
@@ -1748,7 +1612,7 @@ export default function AscendMaxx() {
         <Modal onClose={() => setEditingAnnouncement(false)} maxW="max-w-lg">
           <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
             <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Edit Homepage Announcement</span>
-            <button onClick={() => setEditingAnnouncement(false)} className="text-zinc-600 font-mono text-sm">×</button>
+            <button onClick={() => setEditingAnnouncement(false)} className="text-zinc-600 font-mono text-sm">x</button>
           </div>
           <div className="p-5 space-y-4">
             <div>
@@ -1775,7 +1639,7 @@ export default function AscendMaxx() {
           <div className="bg-zinc-950 border border-zinc-800 w-full max-w-xs max-h-[70vh] overflow-y-auto">
             <div className="flex justify-between items-center px-4 py-3 border-b border-zinc-800">
               <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Followers</span>
-              <button onClick={() => setShowFollowers(false)} className="text-zinc-600 font-mono text-sm">×</button>
+              <button onClick={() => setShowFollowers(false)} className="text-zinc-600 font-mono text-sm">x</button>
             </div>
             {profileFollowers.length === 0
               ? <p className="text-zinc-600 text-xs font-mono text-center py-8">No followers yet</p>
@@ -1797,7 +1661,7 @@ export default function AscendMaxx() {
           <div className="bg-zinc-950 border border-zinc-800 w-full max-w-xs max-h-[70vh] overflow-y-auto">
             <div className="flex justify-between items-center px-4 py-3 border-b border-zinc-800">
               <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Following</span>
-              <button onClick={() => setShowFollowing(false)} className="text-zinc-600 font-mono text-sm">×</button>
+              <button onClick={() => setShowFollowing(false)} className="text-zinc-600 font-mono text-sm">x</button>
             </div>
             {profileFollowing.length === 0
               ? <p className="text-zinc-600 text-xs font-mono text-center py-8">Not following anyone</p>
@@ -1891,7 +1755,7 @@ export default function AscendMaxx() {
                   <div key={i} className="relative">
                     <img src={img} alt="" className="h-14 w-14 object-cover border border-zinc-700" />
                     <button onClick={() => setNewThreadImages(prev => prev.filter((_, j) => j !== i))}
-                      className="absolute -top-1.5 -right-1.5 bg-red-600 text-white w-4 h-4 text-xs flex items-center justify-center font-mono">×</button>
+                      className="absolute -top-1.5 -right-1.5 bg-red-600 text-white w-4 h-4 text-xs flex items-center justify-center font-mono">x</button>
                   </div>
                 ))}
               </div>
@@ -1962,7 +1826,7 @@ export default function AscendMaxx() {
         <Modal onClose={() => setShowRateModal(false)} maxW="max-w-2xl">
           <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
             <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">AI Face Analysis</span>
-            <button onClick={() => { setShowRateModal(false); setAiRating(null); }} className="text-zinc-600 font-mono text-sm">×</button>
+            <button onClick={() => { setShowRateModal(false); setAiRating(null); }} className="text-zinc-600 font-mono text-sm">x</button>
           </div>
           <div className="p-5">
             <div className="flex gap-2 mb-5">
@@ -2020,7 +1884,6 @@ export default function AscendMaxx() {
         </div>
       )}
 
-      {/* Mobile bottom nav */}
       <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex sm:hidden z-50">
         {(['Home','Forums','DMs','Members'] as const).map((label) => {
           const view = label.toLowerCase() as View;
