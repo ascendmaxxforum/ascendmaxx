@@ -11,68 +11,84 @@ import {
 import {
   collection, addDoc, getDocs, doc, setDoc, getDoc,
   query, orderBy, serverTimestamp, onSnapshot,
-  updateDoc, increment, where, deleteDoc, limit,
+  updateDoc, increment, where, deleteDoc,
 } from 'firebase/firestore';
 
 const DEVELOPER_EMAIL = 'ascendmaxxforum@gmail.com';
 const DEVELOPER_USERNAME = 'ascendmaxx';
 
 const allForums = [
-  { id: 1,  section: 'Important',      name: 'Rules' },
-  { id: 2,  section: 'Important',      name: 'Announcements' },
-  { id: 3,  section: 'Off topic',      name: 'Lounge' },
-  { id: 4,  section: 'Off topic',      name: 'Music' },
-  { id: 5,  section: 'Off topic',      name: 'Media' },
-  { id: 6,  section: 'Looksmaxxing',   name: 'Rate Me' },
-  { id: 7,  section: 'Looksmaxxing',   name: 'Looksmaxxing' },
-  { id: 8,  section: 'Biohacking',     name: 'Cognitive improvement' },
-  { id: 9,  section: 'Moneymaxxing',   name: 'Moneymaxxing' },
-  { id: 10, section: 'Larpmaxxing',    name: 'Larpmaxxing' },
+  { id: 1,  section: 'Important',    name: 'Rules' },
+  { id: 2,  section: 'Important',    name: 'Announcements' },
+  { id: 3,  section: 'Off topic',    name: 'Lounge' },
+  { id: 4,  section: 'Off topic',    name: 'Music' },
+  { id: 5,  section: 'Off topic',    name: 'Media' },
+  { id: 6,  section: 'Looksmaxxing', name: 'Rate Me' },
+  { id: 7,  section: 'Looksmaxxing', name: 'Looksmaxxing' },
+  { id: 8,  section: 'Biohacking',   name: 'Cognitive improvement' },
+  { id: 9,  section: 'Moneymaxxing', name: 'Moneymaxxing' },
+  { id: 10, section: 'Larpmaxxing',  name: 'Larpmaxxing' },
 ];
 
 const forumSections = ['Important','Off topic','Looksmaxxing','Biohacking','Moneymaxxing','Larpmaxxing'];
 
 const THREADMAXXER_COLORS = [
-  { name: 'Emerald',  value: '#10b981' },
-  { name: 'Sky',      value: '#0ea5e9' },
-  { name: 'Violet',   value: '#8b5cf6' },
-  { name: 'Rose',     value: '#f43f5e' },
-  { name: 'Amber',    value: '#f59e0b' },
-  { name: 'Orange',   value: '#f97316' },
-  { name: 'Pink',     value: '#ec4899' },
-  { name: 'Cyan',     value: '#06b6d4' },
-  { name: 'Lime',     value: '#84cc16' },
-  { name: 'White',    value: '#f4f4f5' },
+  { name: 'Emerald', value: '#10b981' },
+  { name: 'Sky',     value: '#0ea5e9' },
+  { name: 'Violet',  value: '#8b5cf6' },
+  { name: 'Rose',    value: '#f43f5e' },
+  { name: 'Amber',   value: '#f59e0b' },
+  { name: 'Orange',  value: '#f97316' },
+  { name: 'Pink',    value: '#ec4899' },
+  { name: 'Cyan',    value: '#06b6d4' },
+  { name: 'Lime',    value: '#84cc16' },
+  { name: 'White',   value: '#f4f4f5' },
 ];
 
+// ── CHANGE 1: All rank labels now UPPERCASE, fixed label names ───────────────
 function getRank(total: number): { label: string; isThreadmaxxer: boolean } {
-  if (total >= 200) return { label: 'Threadmaxxer', isThreadmaxxer: true };
-  if (total >= 150) return { label: 'Grey',         isThreadmaxxer: false };
-  if (total >= 100) return { label: 'Grey+',        isThreadmaxxer: false };
-  if (total >= 50)  return { label: 'Grey++',       isThreadmaxxer: false };
-  if (total >= 20)  return { label: 'Grey+++',      isThreadmaxxer: false };
-  return               { label: 'Grey+++',           isThreadmaxxer: false };
+  if (total >= 200) return { label: 'THREADMAXXER', isThreadmaxxer: true };
+  if (total >= 150) return { label: 'GREY',         isThreadmaxxer: false };
+  if (total >= 100) return { label: 'GREY+',        isThreadmaxxer: false };
+  if (total >= 50)  return { label: 'GREY++',       isThreadmaxxer: false };
+  if (total >= 20)  return { label: 'GREY+++',      isThreadmaxxer: false };
+  return               { label: 'GREY+++',           isThreadmaxxer: false };
 }
 
-// RankTag now supports bgColor + textColor overrides (used by dev tag editor)
-function RankTag({ total, color, bgColor, textColor }: {
-  total: number; color?: string; bgColor?: string; textColor?: string;
+// ── CHANGE 2: RankTag now also handles the ADMIN default for developer ───────
+// tagLabel from Firestore takes priority, then rank label
+function RankTag({ total, color, bgColor, textColor, tagLabel, username }: {
+  total: number; color?: string; bgColor?: string; textColor?: string; tagLabel?: string; username?: string;
 }) {
   const { label, isThreadmaxxer } = getRank(total);
-  if (isThreadmaxxer) {
+
+  // Developer account always defaults to ADMIN if no custom tagLabel set
+  const isDev = username === DEVELOPER_USERNAME;
+  const displayLabel = tagLabel || (isDev ? 'ADMIN' : label);
+
+  // Dev gets special styling if no custom colours set
+  const isCustomOrThreadmaxxer = !!(tagLabel || bgColor || textColor) || isThreadmaxxer || isDev;
+
+  const defaultDevBg   = '#ef4444'; // red for admin
+  const defaultDevText = '#ffffff';
+
+  if (isCustomOrThreadmaxxer) {
     return (
       <span
         className="inline-block px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest rounded-sm"
-        style={{ backgroundColor: bgColor || color || '#10b981', color: textColor || '#000' }}>
-        {label}
+        style={{
+          backgroundColor: bgColor || (isDev && !tagLabel ? defaultDevBg : color || '#10b981'),
+          color: textColor || (isDev && !tagLabel ? defaultDevText : '#000'),
+        }}>
+        {displayLabel}
       </span>
     );
   }
   return (
     <span
       className="inline-block px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest rounded-sm"
-      style={{ backgroundColor: bgColor || '#3f3f46', color: textColor || '#d4d4d8' }}>
-      {label}
+      style={{ backgroundColor: '#3f3f46', color: '#d4d4d8' }}>
+      {displayLabel}
     </span>
   );
 }
@@ -80,7 +96,10 @@ function RankTag({ total, color, bgColor, textColor }: {
 function Avatar({ src, username, size = 32 }: { src?: string; username: string; size?: number }) {
   const initials = username ? username.slice(0, 2).toUpperCase() : '??';
   const style = { width: size, height: size, minWidth: size };
-  if (src) return <img src={src} alt={username} style={style} className="rounded-full object-cover border border-zinc-700 flex-shrink-0" />;
+  if (src) return (
+    <img src={src} alt={username} style={style}
+      className="rounded-full object-cover border border-zinc-700 flex-shrink-0" />
+  );
   return (
     <div style={{ ...style, fontSize: size < 28 ? 9 : 13 }}
       className="rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-zinc-300">
@@ -89,18 +108,18 @@ function Avatar({ src, username, size = 32 }: { src?: string; username: string; 
   );
 }
 
-// ── Modal defined OUTSIDE main component to prevent remount on re-render ───
 const Modal = memo(function Modal({ children, onClose, maxW = 'max-w-lg' }: {
   children: React.ReactNode; onClose: () => void; maxW?: string;
 }) {
   return (
     <div className="fixed inset-0 bg-black/85 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
-      <div className={`bg-zinc-950 border border-zinc-800 w-full ${maxW} sm:my-4 max-h-[90vh] overflow-y-auto`}>{children}</div>
+      <div className={`bg-zinc-950 border border-zinc-800 w-full ${maxW} sm:my-4 max-h-[90vh] overflow-y-auto`}>
+        {children}
+      </div>
     </div>
   );
 });
 
-// ── MembersList defined OUTSIDE main component ─────────────────────────────
 const MembersList = memo(function MembersList({ openProfile, presenceMap, startDM, currentUid }: {
   openProfile: (u: string) => void;
   presenceMap: Record<string, boolean>;
@@ -108,10 +127,12 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
   currentUid: string;
 }) {
   const [members, setMembers] = useState<any[]>([]);
+
   useEffect(() => {
-    const unsub = onSnapshot(query(collection(db, 'users'), orderBy('createdAt', 'desc')), (snap) => {
-      setMembers(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
-    });
+    const unsub = onSnapshot(
+      query(collection(db, 'users'), orderBy('createdAt', 'desc')),
+      (snap) => setMembers(snap.docs.map(d => ({ uid: d.id, ...d.data() })))
+    );
     return () => unsub();
   }, []);
 
@@ -127,35 +148,49 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
           <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-zinc-950 ${presenceMap[m.uid] ? 'bg-emerald-400' : 'bg-zinc-700'}`} />
         </button>
         <div className="flex-1 min-w-0">
-          <button onClick={() => openProfile(m.username)} className="font-mono text-sm text-zinc-200 hover:text-emerald-400 transition">{m.username}</button>
+          <button onClick={() => openProfile(m.username)} className="font-mono text-sm text-zinc-200 hover:text-emerald-400 transition">
+            {m.username}
+          </button>
           <div className="flex items-center gap-2 mt-0.5">
-            <RankTag total={total} color={m.tagColor} bgColor={m.tagBgColor} textColor={m.tagTextColor} />
-            <span className={`text-[10px] font-mono ${presenceMap[m.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>{presenceMap[m.uid] ? 'online' : 'offline'}</span>
+            {/* CHANGE 2: pass username so RankTag knows if it's the dev account */}
+            <RankTag total={total} color={m.tagColor} bgColor={m.tagBgColor} textColor={m.tagTextColor} tagLabel={m.tagLabel} username={m.username} />
+            <span className={`text-[10px] font-mono ${presenceMap[m.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>
+              {presenceMap[m.uid] ? 'online' : 'offline'}
+            </span>
           </div>
           {m.bio && <div className="text-[10px] font-mono text-zinc-600 truncate mt-0.5">{m.bio}</div>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="text-right text-[10px] font-mono text-zinc-600">{(m.threadCount || 0) + (m.replyCount || 0)} posts</div>
+          <div className="text-right text-[10px] font-mono text-zinc-600">{total} posts</div>
           {m.uid !== currentUid && (
-            <button onClick={() => startDM(m.uid, m.username)} className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2 py-1 transition">DM</button>
+            <button onClick={() => startDM(m.uid, m.username)}
+              className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2 py-1 transition">
+              DM
+            </button>
           )}
         </div>
       </div>
     );
   };
 
-  if (members.length === 0) return <div className="p-8 text-center text-zinc-600 text-xs font-mono">No members yet</div>;
+  if (members.length === 0) return (
+    <div className="p-8 text-center text-zinc-600 text-xs font-mono">No members yet</div>
+  );
   return (
     <div>
       {online.length > 0 && (
         <>
-          <div className="px-4 py-2 bg-zinc-900/50 text-[10px] font-mono uppercase tracking-widest text-emerald-600 border-b border-zinc-800">Online — {online.length}</div>
+          <div className="px-4 py-2 bg-zinc-900/50 text-[10px] font-mono uppercase tracking-widest text-emerald-600 border-b border-zinc-800">
+            Online — {online.length}
+          </div>
           {online.map(m => <Row key={m.uid} m={m} />)}
         </>
       )}
       {offline.length > 0 && (
         <>
-          <div className="px-4 py-2 bg-zinc-900/50 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-zinc-800">Offline — {offline.length}</div>
+          <div className="px-4 py-2 bg-zinc-900/50 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-zinc-800">
+            Offline — {offline.length}
+          </div>
           {offline.map(m => <Row key={m.uid} m={m} />)}
         </>
       )}
@@ -165,104 +200,111 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
 
 export default function AscendMaxx() {
   type View = 'home' | 'forums' | 'about' | 'dms' | 'members';
-  const [currentView, setCurrentView]       = useState<View>('home');
-  const [selectedForum, setSelectedForum]   = useState<any>(null);
-  const [sidebarOpen, setSidebarOpen]       = useState(false);
 
-  const [aboutText, setAboutText]           = useState('AscendMaxx is a self-improvement community focused on looksmaxxing, cognitive enhancement, and total life ascension.');
-  const [editingAbout, setEditingAbout]     = useState(false);
-  const [aboutDraft, setAboutDraft]         = useState('');
+  const [currentView, setCurrentView]     = useState<View>('home');
+  const [selectedForum, setSelectedForum] = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen]     = useState(false);
 
-  const [isLoggedIn, setIsLoggedIn]         = useState(false);
-  const [currentUser, setCurrentUser]       = useState('');
-  const [currentUid, setCurrentUid]         = useState('');
+  const [aboutText, setAboutText]   = useState('AscendMaxx is a self-improvement community focused on looksmaxxing, cognitive enhancement, and total life ascension.');
+  const [editingAbout, setEditingAbout] = useState(false);
+  const [aboutDraft, setAboutDraft] = useState('');
+
+  const [isLoggedIn, setIsLoggedIn]           = useState(false);
+  const [currentUser, setCurrentUser]         = useState('');
+  const [currentUid, setCurrentUid]           = useState('');
   const [currentUserData, setCurrentUserData] = useState<any>(null);
-  const [isDeveloper, setIsDeveloper]       = useState(false);
-  const [authLoading, setAuthLoading]       = useState(true);
+  const [isDeveloper, setIsDeveloper]         = useState(false);
+  const [authLoading, setAuthLoading]         = useState(true);
 
-  const [showLogin, setShowLogin]           = useState(false);
-  const [loginData, setLoginData]           = useState({ email: '', password: '' });
-  const [loginError, setLoginError]         = useState('');
-  const [loginLoading, setLoginLoading]     = useState(false);
-  const [showRegister, setShowRegister]     = useState(false);
-  const [registerData, setRegisterData]     = useState({ username: '', email: '', password: '' });
-  const [registerError, setRegisterError]   = useState('');
-  const [registerLoading, setRegisterLoading] = useState(false);
+  const [showLogin, setShowLogin]       = useState(false);
+  const [loginData, setLoginData]       = useState({ email: '', password: '' });
+  const [loginError, setLoginError]     = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  const [threads, setThreads]               = useState<any[]>([]);
+  const [showRegister, setShowRegister]         = useState(false);
+  const [registerData, setRegisterData]         = useState({ username: '', email: '', password: '' });
+  const [registerError, setRegisterError]       = useState('');
+  const [registerLoading, setRegisterLoading]   = useState(false);
+
+  const [threads, setThreads]           = useState<any[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
-  const [showNewThreadModal, setShowNewThreadModal] = useState(false);
-  const [newThreadTitle, setNewThreadTitle]         = useState('');
+  const [showNewThreadModal, setShowNewThreadModal]     = useState(false);
+  const [newThreadTitle, setNewThreadTitle]             = useState('');
   const [newThreadDescription, setNewThreadDescription] = useState('');
-  const [newThreadImages, setNewThreadImages]       = useState<string[]>([]);
-  const [postingThread, setPostingThread]           = useState(false);
+  const [newThreadImages, setNewThreadImages]           = useState<string[]>([]);
+  const [postingThread, setPostingThread]               = useState(false);
 
-  const [viewingThread, setViewingThread]   = useState<any>(null);
-  const [threadReplies, setThreadReplies]   = useState<any[]>([]);
-  const [replyText, setReplyText]           = useState('');
-  const [postingReply, setPostingReply]     = useState(false);
+  const [viewingThread, setViewingThread]     = useState<any>(null);
+  const [threadReplies, setThreadReplies]     = useState<any[]>([]);
+  const [replyText, setReplyText]             = useState('');
+  const [postingReply, setPostingReply]       = useState(false);
   const [threadUserCache, setThreadUserCache] = useState<Record<string, any>>({});
 
-  const [pinnedIds, setPinnedIds]           = useState<string[]>(['ann-1']);
+  const [pinnedIds, setPinnedIds]                   = useState<string[]>(['ann-1']);
   const [defaultAnnouncement, setDefaultAnnouncement] = useState<any>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState(false);
-  const [annDraft, setAnnDraft]             = useState({ title: '', description: '' });
+  const [annDraft, setAnnDraft]                     = useState({ title: '', description: '' });
 
-  const [viewingProfile, setViewingProfile] = useState<any>(null);
-  const [showEditProfile, setShowEditProfile] = useState(false);
-  const [profileBio, setProfileBio]         = useState('');
-  const [profileAvatar, setProfileAvatar]   = useState('');
-  const [profileTagColor, setProfileTagColor] = useState('');
-  const [savingProfile, setSavingProfile]   = useState(false);
-  const [followingList, setFollowingList]   = useState<string[]>([]);
+  const [viewingProfile, setViewingProfile]     = useState<any>(null);
+  const [showEditProfile, setShowEditProfile]   = useState(false);
+  const [profileBio, setProfileBio]             = useState('');
+  const [profileAvatar, setProfileAvatar]       = useState('');
+  const [profileTagColor, setProfileTagColor]   = useState('');
+  const [savingProfile, setSavingProfile]       = useState(false);
+  const [followingList, setFollowingList]       = useState<string[]>([]);
   const [profileFollowers, setProfileFollowers] = useState<any[]>([]);
   const [profileFollowing, setProfileFollowing] = useState<any[]>([]);
-  const [showFollowers, setShowFollowers]   = useState(false);
-  const [showFollowing, setShowFollowing]   = useState(false);
+  const [showFollowers, setShowFollowers]       = useState(false);
+  const [showFollowing, setShowFollowing]       = useState(false);
 
-  // Dev tag editor state
+  // CHANGE 3: Rep system state
+  const [repGivenMap, setRepGivenMap] = useState<Record<string, boolean>>({});
+
+  // Dev tag editor
   const [showDevTagEditor, setShowDevTagEditor] = useState(false);
-  const [devTagTarget, setDevTagTarget]     = useState<any>(null);
-  const [devTagBgColor, setDevTagBgColor]   = useState('#3f3f46');
-  const [devTagTextColor, setDevTagTextColor] = useState('#d4d4d8');
-  const [savingDevTag, setSavingDevTag]     = useState(false);
+  const [devTagTarget, setDevTagTarget]         = useState<any>(null);
+  const [devTagBgColor, setDevTagBgColor]       = useState('#3f3f46');
+  const [devTagTextColor, setDevTagTextColor]   = useState('#d4d4d8');
+  const [devTagLabel, setDevTagLabel]           = useState('');
+  const [savingDevTag, setSavingDevTag]         = useState(false);
 
-  const [showDmPanel, setShowDmPanel]       = useState(false);
-  const [conversations, setConversations]   = useState<any[]>([]);
-  const [activeConvo, setActiveConvo]       = useState<any>(null);
-  const [messages, setMessages]             = useState<any[]>([]);
-  const [dmInput, setDmInput]               = useState('');
-  const [dmUnread, setDmUnread]             = useState(0);
-  const [dmSearch, setDmSearch]             = useState('');
-  const [dmSearchResults, setDmSearchResults] = useState<any[]>([]);
-  const [searchingUsers, setSearchingUsers] = useState(false);
-  const messagesEndRef                      = useRef<any>(null);
+  const [showDmPanel, setShowDmPanel]           = useState(false);
+  const [conversations, setConversations]       = useState<any[]>([]);
+  const [activeConvo, setActiveConvo]           = useState<any>(null);
+  const [messages, setMessages]                 = useState<any[]>([]);
+  const [dmInput, setDmInput]                   = useState('');
+  const [dmUnread, setDmUnread]                 = useState(0);
+  const [dmSearch, setDmSearch]                 = useState('');
+  const [dmSearchResults, setDmSearchResults]   = useState<any[]>([]);
+  const [searchingUsers, setSearchingUsers]     = useState(false);
+  const messagesEndRef                          = useRef<any>(null);
 
-  const [totalUsers, setTotalUsers]         = useState(0);
-  const [latestUser, setLatestUser]         = useState<any>(null);
-  const [onlineCount, setOnlineCount]       = useState(0);
-  const [staffMembers, setStaffMembers]     = useState<any[]>([]);
-  const [presenceMap, setPresenceMap]       = useState<Record<string, boolean>>({});
+  const [totalUsers, setTotalUsers]     = useState(0);
+  const [latestUser, setLatestUser]     = useState<any>(null);
+  const [onlineCount, setOnlineCount]   = useState(0);
+  const [staffMembers, setStaffMembers] = useState<any[]>([]);
+  const [presenceMap, setPresenceMap]   = useState<Record<string, boolean>>({});
 
   const [showThemePicker, setShowThemePicker] = useState(false);
-  const [activeBg, setActiveBg]             = useState('#0d0d0d');
+  const [activeBg, setActiveBg]               = useState('#0d0d0d');
   const themes = [
     { name: 'Default',  bg: '#0d0d0d' }, { name: 'Midnight', bg: '#0d1117' },
     { name: 'Navy',     bg: '#0a0f1e' }, { name: 'Forest',   bg: '#0a130d' },
     { name: 'Crimson',  bg: '#130a0a' }, { name: 'Purple',   bg: '#0f0a1a' },
   ];
 
-  const [showRateModal, setShowRateModal]   = useState(false);
-  const [ratingMode, setRatingMode]         = useState<'ai'|'community'>('ai');
-  const [imagePreview, setImagePreview]     = useState<string | null>(null);
+  const [showRateModal, setShowRateModal]     = useState(false);
+  const [ratingMode, setRatingMode]           = useState<'ai'|'community'>('ai');
+  const [imagePreview, setImagePreview]       = useState<string | null>(null);
   const [faceDescription, setFaceDescription] = useState('');
-  const [aiRating, setAiRating]             = useState<any>(null);
-  const [isAnalyzing, setIsAnalyzing]       = useState(false);
+  const [aiRating, setAiRating]               = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing]         = useState(false);
 
   const inputCls     = "w-full bg-black border border-zinc-700 px-3 py-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600";
   const btnPrimary   = "bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-mono font-bold uppercase tracking-wider px-4 py-2.5 transition-colors disabled:opacity-50";
   const btnSecondary = "border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 text-xs font-mono uppercase tracking-wider px-4 py-2.5 transition-colors";
 
+  // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'announcement'), (snap) => {
       if (snap.exists()) setDefaultAnnouncement(snap.data());
@@ -300,17 +342,18 @@ export default function AscendMaxx() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, 'threads'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      const loaded = snap.docs.map((d) => ({
-        id: d.id, ...d.data(),
-        date: d.data().createdAt?.toDate
-          ? d.data().createdAt.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-          : 'Just now',
-      }));
-      setThreads(loaded);
-      setThreadsLoading(false);
-    });
+    const unsub = onSnapshot(
+      query(collection(db, 'threads'), orderBy('createdAt', 'desc')),
+      (snap) => {
+        setThreads(snap.docs.map((d) => ({
+          id: d.id, ...d.data(),
+          date: d.data().createdAt?.toDate
+            ? d.data().createdAt.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+            : 'Just now',
+        })));
+        setThreadsLoading(false);
+      }
+    );
     return () => unsub();
   }, []);
 
@@ -321,12 +364,17 @@ export default function AscendMaxx() {
   }, []);
 
   useEffect(() => {
-    const unsub = onSnapshot(query(collection(db, 'users'), orderBy('createdAt', 'desc')), (snap) => {
-      setTotalUsers(snap.size);
-      if (snap.docs.length > 0) setLatestUser(snap.docs[0].data());
-      const staff = snap.docs.filter(d => d.data().username === DEVELOPER_USERNAME).map(d => ({ uid: d.id, ...d.data() }));
-      setStaffMembers(staff);
-    });
+    const unsub = onSnapshot(
+      query(collection(db, 'users'), orderBy('createdAt', 'desc')),
+      (snap) => {
+        setTotalUsers(snap.size);
+        if (snap.docs.length > 0) setLatestUser(snap.docs[0].data());
+        setStaffMembers(
+          snap.docs.filter(d => d.data().username === DEVELOPER_USERNAME)
+            .map(d => ({ uid: d.id, ...d.data() }))
+        );
+      }
+    );
     const presUnsub = onSnapshot(collection(db, 'presence'), (snap) => {
       const map: Record<string, boolean> = {};
       snap.docs.forEach(d => { map[d.id] = d.data().online; });
@@ -367,8 +415,7 @@ export default function AscendMaxx() {
           return { id: d.id, ...data, otherUser };
         }));
         setConversations(convos);
-        const unread = convos.filter(c => (c as any).lastSenderUid !== currentUid && !(c as any).readBy?.[currentUid]).length;
-        setDmUnread(unread);
+        setDmUnread(convos.filter(c => (c as any).lastSenderUid !== currentUid && !(c as any).readBy?.[currentUid]).length);
       }
     );
     return () => unsub();
@@ -404,8 +451,8 @@ export default function AscendMaxx() {
         const cache: Record<string, any> = {};
         await Promise.all(uids.map(async (uid: string) => {
           try {
-            const snap = await getDoc(doc(db, 'users', uid));
-            if (snap.exists()) cache[uid] = snap.data();
+            const s = await getDoc(doc(db, 'users', uid));
+            if (s.exists()) cache[uid] = s.data();
           } catch {}
         }));
         setThreadUserCache(cache);
@@ -420,10 +467,11 @@ export default function AscendMaxx() {
       setSearchingUsers(true);
       const snap = await getDocs(collection(db, 'users'));
       const q = dmSearch.toLowerCase();
-      const results = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
-        .filter((u: any) => u.username?.toLowerCase().includes(q) && u.uid !== currentUid)
-        .slice(0, 8);
-      setDmSearchResults(results);
+      setDmSearchResults(
+        snap.docs.map(d => ({ uid: d.id, ...d.data() }))
+          .filter((u: any) => u.username?.toLowerCase().includes(q) && u.uid !== currentUid)
+          .slice(0, 8)
+      );
       setSearchingUsers(false);
     }, 300);
     return () => clearTimeout(timeout);
@@ -435,6 +483,17 @@ export default function AscendMaxx() {
     };
     window.addEventListener('beforeunload', handleUnload);
     return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [currentUid]);
+
+  // CHANGE 3: Load which users current user has already repped
+  useEffect(() => {
+    if (!currentUid) { setRepGivenMap({}); return; }
+    const unsub = onSnapshot(collection(db, 'users', currentUid, 'repGiven'), (snap) => {
+      const map: Record<string, boolean> = {};
+      snap.docs.forEach(d => { map[d.id] = true; });
+      setRepGivenMap(map);
+    });
+    return () => unsub();
   }, [currentUid]);
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -452,8 +511,9 @@ export default function AscendMaxx() {
       const uid = cred.user.uid;
       await setDoc(doc(db, 'users', uid), {
         username, email, bio: '', avatar: '', tagColor: '',
-        tagBgColor: '', tagTextColor: '',
-        threadCount: 0, replyCount: 0, createdAt: serverTimestamp(),
+        tagBgColor: '', tagTextColor: '', tagLabel: '',
+        // CHANGE 4: Initialize counters correctly
+        threadCount: 0, replyCount: 0, rep: 0, createdAt: serverTimestamp(),
       });
       await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid });
       setCurrentUser(username); setCurrentUid(uid); setIsLoggedIn(true);
@@ -484,7 +544,7 @@ export default function AscendMaxx() {
     setIsLoggedIn(false); setCurrentUser(''); setCurrentUid(''); setCurrentUserData(null); setIsDeveloper(false);
   };
 
-  // ── Thread actions ────────────────────────────────────────────────────────
+  // ── Threads ───────────────────────────────────────────────────────────────
   const createThread = async () => {
     if (!newThreadTitle.trim()) { alert('Title required'); return; }
     if (selectedForum?.id === 2 && !isDeveloper) { alert('Only administrators can post in Announcements.'); return; }
@@ -497,6 +557,7 @@ export default function AscendMaxx() {
         authorAvatar: currentUserData?.avatar || '',
         images: newThreadImages, replies: 0, views: 1, createdAt: serverTimestamp(),
       });
+      // CHANGE 4: increment threadCount correctly
       await updateDoc(doc(db, 'users', currentUid), { threadCount: increment(1) });
       setShowNewThreadModal(false); setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]);
     } catch { alert('Failed to post. Try again.'); }
@@ -517,7 +578,9 @@ export default function AscendMaxx() {
   };
 
   const togglePin = async (threadId: string) => {
-    const next = pinnedIds.includes(threadId) ? pinnedIds.filter(id => id !== threadId) : [...pinnedIds, threadId];
+    const next = pinnedIds.includes(threadId)
+      ? pinnedIds.filter(id => id !== threadId)
+      : [...pinnedIds, threadId];
     setPinnedIds(next);
     await setDoc(doc(db, 'settings', 'pinned'), { ids: next });
   };
@@ -532,10 +595,37 @@ export default function AscendMaxx() {
         authorAvatar: currentUserData?.avatar || '', createdAt: serverTimestamp(),
       });
       if (threadId !== 'ann-1') await updateDoc(doc(db, 'threads', threadId), { replies: increment(1) });
+      // CHANGE 4: increment replyCount so the message counter works
       await updateDoc(doc(db, 'users', currentUid), { replyCount: increment(1) });
       setReplyText('');
     } catch { alert('Failed to post reply.'); }
     setPostingReply(false);
+  };
+
+  // CHANGE 3: Rep system — give +1 rep, one rep per user per user
+  const giveRep = async (targetUid: string) => {
+    if (!currentUid || !isLoggedIn) { setShowLogin(true); return; }
+    if (targetUid === currentUid) return; // can't rep yourself
+    if (repGivenMap[targetUid]) return;   // already repped this user
+
+    try {
+      // Record that this user gave rep to target
+      await setDoc(doc(db, 'users', currentUid, 'repGiven', targetUid), {
+        givenAt: serverTimestamp(),
+      });
+      // Increment target's rep count
+      await updateDoc(doc(db, 'users', targetUid), { rep: increment(1) });
+
+      // Update viewingProfile optimistically
+      setViewingProfile((prev: any) => prev ? { ...prev, rep: (prev.rep || 0) + 1 } : prev);
+      // Update threadUserCache optimistically
+      setThreadUserCache(prev => ({
+        ...prev,
+        [targetUid]: { ...prev[targetUid], rep: ((prev[targetUid]?.rep) || 0) + 1 },
+      }));
+    } catch (e) {
+      console.error('Failed to give rep:', e);
+    }
   };
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -546,7 +636,7 @@ export default function AscendMaxx() {
       const uid = unameSnap.data().uid;
       const userSnap = await getDoc(doc(db, 'users', uid));
       if (!userSnap.exists()) return;
-      const followerSnap = await getDocs(collection(db, 'users', uid, 'followers'));
+      const followerSnap  = await getDocs(collection(db, 'users', uid, 'followers'));
       const followingSnap = await getDocs(collection(db, 'users', uid, 'following'));
       setViewingProfile({
         ...userSnap.data(), uid,
@@ -559,8 +649,7 @@ export default function AscendMaxx() {
 
   const toggleFollow = async (targetUid: string, targetUsername: string) => {
     if (!currentUid) return;
-    const isFollowing = followingList.includes(targetUid);
-    if (isFollowing) {
+    if (followingList.includes(targetUid)) {
       await deleteDoc(doc(db, 'users', currentUid, 'following', targetUid));
       await deleteDoc(doc(db, 'users', targetUid, 'followers', currentUid));
     } else {
@@ -609,6 +698,7 @@ export default function AscendMaxx() {
     const isThreadmaxxer = getRank(total).isThreadmaxxer;
     setDevTagBgColor(profile.tagBgColor || (isThreadmaxxer ? (profile.tagColor || '#10b981') : '#3f3f46'));
     setDevTagTextColor(profile.tagTextColor || (isThreadmaxxer ? '#000000' : '#d4d4d8'));
+    setDevTagLabel(profile.tagLabel || '');
     setShowDevTagEditor(true);
   };
 
@@ -619,21 +709,26 @@ export default function AscendMaxx() {
       await updateDoc(doc(db, 'users', devTagTarget.uid), {
         tagBgColor: devTagBgColor,
         tagTextColor: devTagTextColor,
+        tagLabel: devTagLabel,
       });
       setShowDevTagEditor(false);
       if (viewingProfile?.uid === devTagTarget.uid) {
-        setViewingProfile((prev: any) => ({ ...prev, tagBgColor: devTagBgColor, tagTextColor: devTagTextColor }));
+        setViewingProfile((prev: any) => ({
+          ...prev,
+          tagBgColor: devTagBgColor,
+          tagTextColor: devTagTextColor,
+          tagLabel: devTagLabel,
+        }));
       }
     } catch { alert('Failed to save tag.'); }
     setSavingDevTag(false);
   };
 
-  // ── DM ────────────────────────────────────────────────────────────────────
+  // ── DMs ───────────────────────────────────────────────────────────────────
   const startDM = useCallback(async (otherUid: string, otherUsername: string) => {
     if (!currentUid) { setShowLogin(true); return; }
     if (otherUid === currentUid) return;
-    const q = query(collection(db, 'conversations'), where('participants', 'array-contains', currentUid));
-    const snap = await getDocs(q);
+    const snap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', currentUid)));
     const existing = snap.docs.find(d => d.data().participants.includes(otherUid));
     if (existing) {
       const data = existing.data();
@@ -668,7 +763,11 @@ export default function AscendMaxx() {
   // ── AI ────────────────────────────────────────────────────────────────────
   const handleImageUpload = (e: any) => {
     const file = e.target.files[0];
-    if (file) { const r = new FileReader(); r.onload = (ev) => setImagePreview(ev.target?.result as string); r.readAsDataURL(file); }
+    if (file) {
+      const r = new FileReader();
+      r.onload = (ev) => setImagePreview(ev.target?.result as string);
+      r.readAsDataURL(file);
+    }
   };
 
   const analyzeFace = async () => {
@@ -699,13 +798,15 @@ export default function AscendMaxx() {
   const visibleThreads = selectedForum ? threads.filter(t => t.forumId === selectedForum.id) : threads;
   const pinnedThreads  = threads.filter(t => pinnedIds.includes(t.id));
 
-  // ── ThreadCard — stable with useCallback so it doesn't remount inputs ────
+  // ── ThreadCard ────────────────────────────────────────────────────────────
   const ThreadCard = useCallback(({ thread, isAnnouncement = false }: { thread: any; isAnnouncement?: boolean }) => {
     const isPinned = pinnedIds.includes(thread.id) || isAnnouncement;
     return (
       <div
         onClick={() => setViewingThread(thread)}
-        className={`border-b border-zinc-800 px-4 py-3 hover:bg-zinc-900/60 transition-colors cursor-pointer ${isPinned && !isAnnouncement ? 'bg-zinc-900/30 border-l-2 border-l-yellow-600' : ''} ${isAnnouncement ? 'bg-zinc-900/40 border-l-2 border-l-emerald-600' : ''}`}>
+        className={`border-b border-zinc-800 px-4 py-3 hover:bg-zinc-900/60 transition-colors cursor-pointer
+          ${isPinned && !isAnnouncement ? 'bg-zinc-900/30 border-l-2 border-l-yellow-600' : ''}
+          ${isAnnouncement ? 'bg-zinc-900/40 border-l-2 border-l-emerald-600' : ''}`}>
         {isAnnouncement && <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-500 mb-1 block">Pinned</span>}
         {!isAnnouncement && isPinned && <span className="text-[10px] font-mono uppercase tracking-widest text-yellow-500 mb-1 block">Pinned</span>}
         {!isAnnouncement && !isPinned && thread.forum && <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">{thread.forum}</span>}
@@ -715,7 +816,8 @@ export default function AscendMaxx() {
           </h3>
           <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
             {isDeveloper && !isAnnouncement && (
-              <button onClick={() => togglePin(thread.id)} className={`text-[10px] font-mono ${isPinned ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
+              <button onClick={() => togglePin(thread.id)}
+                className={`text-[10px] font-mono ${isPinned ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
                 {isPinned ? 'unpin' : 'pin'}
               </button>
             )}
@@ -733,7 +835,8 @@ export default function AscendMaxx() {
           </div>
         )}
         <div className="flex items-center gap-3 mt-2">
-          <button onClick={(e) => { e.stopPropagation(); openProfile(thread.author); }} className="flex items-center gap-1.5 hover:opacity-80 transition">
+          <button onClick={(e) => { e.stopPropagation(); openProfile(thread.author); }}
+            className="flex items-center gap-1.5 hover:opacity-80 transition">
             <Avatar src={thread.authorAvatar} username={thread.author} size={18} />
             <span className="text-emerald-500 text-xs font-mono">{thread.author}</span>
           </button>
@@ -744,27 +847,40 @@ export default function AscendMaxx() {
     );
   }, [pinnedIds, isDeveloper, openProfile]);
 
-  // ── ThreadView ─────────────────────────────────────────────────────────────
+  // ── ThreadView ────────────────────────────────────────────────────────────
   const ThreadView = useCallback(() => {
     if (!viewingThread) return null;
     const isAnn = viewingThread.id === 'ann-1';
-    const opAuthorUid = viewingThread.authorUid || '';
-    const opUserData  = threadUserCache[opAuthorUid] || null;
+    const opUserData = threadUserCache[viewingThread.authorUid || ''] || null;
 
-    const PostRow = ({ userData, authorName, authorAvatar, date, text, images, postNum }: any) => {
+    // CHANGE 3 + CHANGE 4 + CHANGE 2: PostRow now shows Messages AND Rep, with correct counts and UPPERCASE tags
+    const PostRow = ({ userData, authorName, authorAvatar, authorUid, date, text, images, postNum }: any) => {
       const total = (userData?.threadCount || 0) + (userData?.replyCount || 0);
+      const repCount = userData?.rep || 0;
+      const canRep = isLoggedIn && currentUid && authorUid && authorUid !== currentUid && !repGivenMap[authorUid];
+      const alreadyRepped = !!repGivenMap[authorUid];
+
       return (
         <div className="flex border-b border-zinc-800">
           <div className="w-28 sm:w-36 flex-shrink-0 border-r border-zinc-800 p-3 flex flex-col items-center text-center">
             <button onClick={() => openProfile(authorName)} className="hover:opacity-80 transition mb-2">
               <Avatar src={authorAvatar} username={authorName} size={48} />
             </button>
-            <button onClick={() => openProfile(authorName)} className="text-emerald-400 text-xs font-mono font-bold hover:underline truncate w-full text-center mb-1">
+            <button onClick={() => openProfile(authorName)}
+              className="text-emerald-400 text-xs font-mono font-bold hover:underline truncate w-full text-center mb-1">
               {authorName}
             </button>
-            <RankTag total={total} color={userData?.tagColor} bgColor={userData?.tagBgColor} textColor={userData?.tagTextColor} />
-            <div className="mt-2 space-y-0.5 w-full">
-              <div className="text-[9px] font-mono text-zinc-600">Messages: <span className="text-zinc-400">{(userData?.threadCount||0)+(userData?.replyCount||0)}</span></div>
+            {/* CHANGE 2: pass username for dev ADMIN tag */}
+            <RankTag total={total} color={userData?.tagColor} bgColor={userData?.tagBgColor} textColor={userData?.tagTextColor} tagLabel={userData?.tagLabel} username={authorName} />
+            <div className="mt-2 w-full space-y-1">
+              {/* CHANGE 4: Messages counter — shows threadCount + replyCount */}
+              <div className="text-[9px] font-mono text-zinc-600">
+                Messages: <span className="text-zinc-400">{total}</span>
+              </div>
+              {/* CHANGE 3: Rep counter in post sidebar */}
+              <div className="text-[9px] font-mono text-zinc-600">
+                Rep: <span className="text-amber-400 font-bold">{repCount}</span>
+              </div>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -790,32 +906,52 @@ export default function AscendMaxx() {
     return (
       <div>
         <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-900/30">
-          <button onClick={() => setViewingThread(null)} className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 uppercase tracking-widest mb-1 block">← Back</button>
-          {viewingThread.forum && <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">{viewingThread.forum}</span>}
+          <button onClick={() => setViewingThread(null)}
+            className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 uppercase tracking-widest mb-1 block">
+            ← Back
+          </button>
+          {viewingThread.forum && (
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">{viewingThread.forum}</span>
+          )}
           <div className="flex items-start justify-between gap-3">
-            <h2 className={`font-bold text-base leading-snug ${isAnn ? 'text-emerald-400' : 'text-zinc-100'}`}>{viewingThread.title}</h2>
+            <h2 className={`font-bold text-base leading-snug ${isAnn ? 'text-emerald-400' : 'text-zinc-100'}`}>
+              {viewingThread.title}
+            </h2>
             <div className="flex gap-2 flex-shrink-0">
               {isDeveloper && !isAnn && (
-                <button onClick={() => togglePin(viewingThread.id)} className={`text-[10px] font-mono ${pinnedIds.includes(viewingThread.id) ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
+                <button onClick={() => togglePin(viewingThread.id)}
+                  className={`text-[10px] font-mono ${pinnedIds.includes(viewingThread.id) ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
                   {pinnedIds.includes(viewingThread.id) ? 'Unpin' : 'Pin'}
                 </button>
               )}
               {isDeveloper && isAnn && (
-                <button onClick={() => { setAnnDraft({ title: viewingThread.title, description: viewingThread.description }); setEditingAnnouncement(true); setViewingThread(null); }}
-                  className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 uppercase tracking-widest">Edit</button>
+                <button
+                  onClick={() => {
+                    setAnnDraft({ title: viewingThread.title, description: viewingThread.description });
+                    setEditingAnnouncement(true);
+                    setViewingThread(null);
+                  }}
+                  className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 uppercase tracking-widest">
+                  Edit
+                </button>
               )}
             </div>
           </div>
         </div>
+
         <PostRow userData={opUserData} authorName={viewingThread.author} authorAvatar={viewingThread.authorAvatar}
+          authorUid={viewingThread.authorUid}
           date={viewingThread.date} text={viewingThread.description} images={viewingThread.images} postNum={1} />
+
         {threadReplies.map((r, i) => (
           <PostRow key={r.id} userData={threadUserCache[r.authorUid] || null} authorName={r.author}
-            authorAvatar={r.authorAvatar} date={r.date} text={r.text} postNum={i + 2} />
+            authorAvatar={r.authorAvatar} authorUid={r.authorUid} date={r.date} text={r.text} postNum={i + 2} />
         ))}
+
         <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800 text-[10px] font-mono uppercase tracking-widest text-zinc-500">
           {threadReplies.length} {threadReplies.length === 1 ? 'Reply' : 'Replies'}
         </div>
+
         {isLoggedIn ? (
           <div className="px-4 py-4 border-t border-zinc-800 bg-zinc-950/50">
             <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">Leave a reply</div>
@@ -832,9 +968,9 @@ export default function AscendMaxx() {
         )}
       </div>
     );
-  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, openProfile]);
+  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, openProfile, repGivenMap, currentUid, giveRep]);
 
-  // ── StatsPanel ─────────────────────────────────────────────────────────────
+  // ── StatsPanel ────────────────────────────────────────────────────────────
   const StatsPanel = useCallback(() => {
     const devMember = staffMembers[0];
     const devOnline = devMember ? presenceMap[devMember.uid] : false;
@@ -843,10 +979,10 @@ export default function AscendMaxx() {
         <div className="border border-zinc-800 bg-zinc-900/40 p-4">
           <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-3">Statistics</div>
           <div className="space-y-2">
-            {[['Members', totalUsers, 'text-zinc-200'], ['Online', onlineCount, 'text-emerald-400'], ['Threads', threads.length, 'text-zinc-200']].map(([label, val, cls]) => (
-              <div key={label as string} className="flex justify-between items-center">
-                <span className="text-xs font-mono text-zinc-500">{label as string}</span>
-                <span className={`text-sm font-mono font-bold ${cls as string}`}>{val as number}</span>
+            {([['Members', totalUsers, 'text-zinc-200'], ['Online', onlineCount, 'text-emerald-400'], ['Threads', threads.length, 'text-zinc-200']] as const).map(([label, val, cls]) => (
+              <div key={label} className="flex justify-between items-center">
+                <span className="text-xs font-mono text-zinc-500">{label}</span>
+                <span className={`text-sm font-mono font-bold ${cls}`}>{val}</span>
               </div>
             ))}
           </div>
@@ -862,7 +998,9 @@ export default function AscendMaxx() {
               <div className="text-left min-w-0">
                 <div className="text-xs font-mono text-zinc-100 font-bold truncate">{devMember.username}</div>
                 <div className="text-[10px] font-mono text-emerald-500 mt-0.5">Administrator</div>
-                <div className={`text-[10px] font-mono mt-0.5 ${devOnline ? 'text-emerald-400' : 'text-zinc-600'}`}>{devOnline ? '● online' : '○ offline'}</div>
+                <div className={`text-[10px] font-mono mt-0.5 ${devOnline ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                  {devOnline ? '● online' : '○ offline'}
+                </div>
               </div>
             </button>
           </div>
@@ -886,65 +1024,73 @@ export default function AscendMaxx() {
     );
   }, [staffMembers, presenceMap, totalUsers, onlineCount, threads.length, latestUser, openProfile]);
 
-  // ── SidebarContent ─────────────────────────────────────────────────────────
+  // ── SidebarContent ────────────────────────────────────────────────────────
   const SidebarContent = useCallback(() => (
     <div>
       <div className="px-3 py-2 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-zinc-800">Forums</div>
-      {forumSections.map(section => {
-        const sectionForums = allForums.filter(f => f.section === section);
-        return (
-          <div key={section}>
-            <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-zinc-600 bg-zinc-900/50">{section}</div>
-            {sectionForums.map(f => (
-              <div key={f.id} onClick={() => { setSelectedForum(f); setCurrentView('forums'); setSidebarOpen(false); setViewingThread(null); }}
-                className={`px-4 py-2 text-sm cursor-pointer hover:bg-zinc-800 border-b border-zinc-800/50 transition-colors ${selectedForum?.id === f.id ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-300'}`}>
-                {f.name}
-              </div>
-            ))}
-          </div>
-        );
-      })}
+      {forumSections.map(section => (
+        <div key={section}>
+          <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-zinc-600 bg-zinc-900/50">{section}</div>
+          {allForums.filter(f => f.section === section).map(f => (
+            <div key={f.id}
+              onClick={() => { setSelectedForum(f); setCurrentView('forums'); setSidebarOpen(false); setViewingThread(null); }}
+              className={`px-4 py-2 text-sm cursor-pointer hover:bg-zinc-800 border-b border-zinc-800/50 transition-colors ${selectedForum?.id === f.id ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-300'}`}>
+              {f.name}
+            </div>
+          ))}
+        </div>
+      ))}
       <div className="lg:hidden border-t border-zinc-800 mt-2"><StatsPanel /></div>
     </div>
   ), [selectedForum, StatsPanel]);
 
-  // ── DmPanel ────────────────────────────────────────────────────────────────
+  // ── DmPanel ───────────────────────────────────────────────────────────────
   const DmPanel = useCallback(() => (
     <div className="fixed bottom-14 sm:bottom-16 right-4 sm:right-6 w-80 sm:w-96 bg-zinc-950 border border-zinc-800 shadow-2xl z-[200] flex flex-col" style={{ maxHeight: '70vh' }}>
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800 flex-shrink-0">
         <span className="font-mono text-xs uppercase tracking-widest text-zinc-300 font-bold">Messages</span>
         <div className="flex items-center gap-2">
-          {activeConvo && <button onClick={() => setActiveConvo(null)} className="text-zinc-600 hover:text-zinc-300 text-[10px] font-mono">← back</button>}
+          {activeConvo && (
+            <button onClick={() => setActiveConvo(null)} className="text-zinc-600 hover:text-zinc-300 text-[10px] font-mono">← back</button>
+          )}
           <button onClick={() => setShowDmPanel(false)} className="text-zinc-600 hover:text-zinc-300 font-mono text-sm">x</button>
         </div>
       </div>
+
       {!activeConvo ? (
         <>
           <div className="px-3 py-2 border-b border-zinc-800 flex-shrink-0">
-            <input value={dmSearch} onChange={e => setDmSearch(e.target.value)} placeholder="Search users to message..."
+            <input value={dmSearch} onChange={e => setDmSearch(e.target.value)}
+              placeholder="Search users to message..."
               className="w-full bg-zinc-900 border border-zinc-700 px-3 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600" />
           </div>
           <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'none' }}>
             {dmSearch.trim() ? (
-              searchingUsers ? <div className="text-zinc-600 text-xs font-mono text-center py-4">Searching...</div>
-              : dmSearchResults.length === 0 ? <div className="text-zinc-600 text-xs font-mono text-center py-4">No users found</div>
-              : (
-                <>
-                  <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-zinc-800">Users</div>
-                  {dmSearchResults.map((u: any) => (
-                    <button key={u.uid} onClick={() => { setDmSearch(''); startDM(u.uid, u.username); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-zinc-800/50 hover:bg-zinc-900 transition text-left">
-                      <Avatar src={u.avatar} username={u.username} size={28} />
-                      <div>
-                        <div className="text-xs font-mono text-zinc-200">{u.username}</div>
-                        <div className={`text-[10px] font-mono ${presenceMap[u.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>{presenceMap[u.uid] ? 'online' : 'offline'}</div>
-                      </div>
-                    </button>
-                  ))}
-                </>
-              )
+              searchingUsers
+                ? <div className="text-zinc-600 text-xs font-mono text-center py-4">Searching...</div>
+                : dmSearchResults.length === 0
+                  ? <div className="text-zinc-600 text-xs font-mono text-center py-4">No users found</div>
+                  : (
+                    <>
+                      <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-zinc-800">Users</div>
+                      {dmSearchResults.map((u: any) => (
+                        <button key={u.uid} onClick={() => { setDmSearch(''); startDM(u.uid, u.username); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-zinc-800/50 hover:bg-zinc-900 transition text-left">
+                          <Avatar src={u.avatar} username={u.username} size={28} />
+                          <div>
+                            <div className="text-xs font-mono text-zinc-200">{u.username}</div>
+                            <div className={`text-[10px] font-mono ${presenceMap[u.uid] ? 'text-emerald-500' : 'text-zinc-600'}`}>
+                              {presenceMap[u.uid] ? 'online' : 'offline'}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )
             ) : conversations.length === 0 ? (
-              <div className="text-zinc-600 text-xs font-mono text-center py-8">No conversations yet.<br/>Search for a user to start messaging.</div>
+              <div className="text-zinc-600 text-xs font-mono text-center py-8">
+                No conversations yet.<br />Search for a user to start messaging.
+              </div>
             ) : conversations.map(c => (
               <button key={c.id} onClick={() => setActiveConvo(c)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-zinc-800/50 hover:bg-zinc-900 transition text-left">
@@ -953,7 +1099,9 @@ export default function AscendMaxx() {
                   <div className="text-xs font-mono text-zinc-200 truncate">{c.otherUser?.username}</div>
                   <div className="text-[10px] text-zinc-600 truncate font-mono">{c.lastMessage || 'No messages yet'}</div>
                 </div>
-                {c.lastSenderUid !== currentUid && !c.readBy?.[currentUid] && <span className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0" />}
+                {c.lastSenderUid !== currentUid && !c.readBy?.[currentUid] && (
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0" />
+                )}
               </button>
             ))}
           </div>
@@ -968,13 +1116,16 @@ export default function AscendMaxx() {
             {messages.length === 0 && <div className="text-center text-zinc-600 text-xs font-mono py-4">Say hello!</div>}
             {messages.map(m => (
               <div key={m.id} className={`flex ${m.senderUid === currentUid ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] px-3 py-2 text-xs font-mono break-words ${m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'}`}>{m.text}</div>
+                <div className={`max-w-[75%] px-3 py-2 text-xs font-mono break-words ${m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
+                  {m.text}
+                </div>
               </div>
             ))}
             <div ref={messagesEndRef} />
           </div>
           <div className="px-3 py-2 border-t border-zinc-800 flex gap-2 flex-shrink-0">
-            <input value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
+            <input value={dmInput} onChange={e => setDmInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
               className="flex-1 bg-zinc-900 border border-zinc-700 px-3 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600" />
             <button onClick={sendDM} className="bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-mono font-bold px-3 py-1.5 transition-colors">Send</button>
           </div>
@@ -1006,26 +1157,47 @@ export default function AscendMaxx() {
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-zinc-500 hover:text-zinc-200 font-mono text-sm">≡</button>
             <span className="text-emerald-500 font-mono font-bold tracking-widest text-sm cursor-pointer"
-              onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }}>ASCENDMAXX</span>
+              onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }}>
+              ASCENDMAXX
+            </span>
             <div className="hidden sm:flex items-center gap-1 text-xs font-mono">
               {(['Home','Forums','Members','About'] as const).map(v => (
-                <button key={v} onClick={() => { if (v === 'Home') { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); } else setCurrentView(v.toLowerCase() as View); setViewingThread(null); }}
-                  className={`px-3 py-1.5 transition-colors ${currentView === v.toLowerCase() ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>{v}</button>
+                <button key={v}
+                  onClick={() => {
+                    if (v === 'Home') { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }
+                    else setCurrentView(v.toLowerCase() as View);
+                    setViewingThread(null);
+                  }}
+                  className={`px-3 py-1.5 transition-colors ${currentView === v.toLowerCase() ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  {v}
+                </button>
               ))}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <input type="text" placeholder="Search..." className="hidden md:block bg-zinc-900 border border-zinc-800 px-3 py-1.5 text-xs font-mono w-36 focus:outline-none focus:border-emerald-600 text-zinc-300 placeholder-zinc-600" />
+            <input type="text" placeholder="Search..."
+              className="hidden md:block bg-zinc-900 border border-zinc-800 px-3 py-1.5 text-xs font-mono w-36 focus:outline-none focus:border-emerald-600 text-zinc-300 placeholder-zinc-600" />
             {isLoggedIn && (
-              <button onClick={() => setShowDmPanel(v => !v)} className="relative text-zinc-500 hover:text-zinc-200 text-xs font-mono px-2 py-1.5 transition-colors">
+              <button onClick={() => setShowDmPanel(v => !v)}
+                className="relative text-zinc-500 hover:text-zinc-200 text-xs font-mono px-2 py-1.5 transition-colors">
                 DM
-                {dmUnread > 0 && <span className="absolute -top-0.5 -right-0.5 bg-emerald-500 text-black text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">{dmUnread}</span>}
+                {dmUnread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-emerald-500 text-black text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                    {dmUnread}
+                  </span>
+                )}
               </button>
             )}
             {!isLoggedIn ? (
               <>
-                <button onClick={() => setShowLogin(true)} className="text-xs font-mono px-3 py-1.5 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white transition-colors">Log in</button>
-                <button onClick={() => setShowRegister(true)} className="text-xs font-mono px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold transition-colors">Register</button>
+                <button onClick={() => setShowLogin(true)}
+                  className="text-xs font-mono px-3 py-1.5 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white transition-colors">
+                  Log in
+                </button>
+                <button onClick={() => setShowRegister(true)}
+                  className="text-xs font-mono px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold transition-colors">
+                  Register
+                </button>
               </>
             ) : (
               <div className="flex items-center gap-2">
@@ -1055,7 +1227,10 @@ export default function AscendMaxx() {
                 <h1 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Latest Posts</h1>
                 <div className="flex items-center gap-2">
                   {isDeveloper && (
-                    <button onClick={() => { setAnnDraft({ title: siteAnnouncement.title, description: siteAnnouncement.description }); setEditingAnnouncement(true); }} className={btnSecondary + ' text-[10px] py-1.5 px-3'}>Edit Announcement</button>
+                    <button onClick={() => { setAnnDraft({ title: siteAnnouncement.title, description: siteAnnouncement.description }); setEditingAnnouncement(true); }}
+                      className={btnSecondary + ' text-[10px] py-1.5 px-3'}>
+                      Edit Announcement
+                    </button>
                   )}
                   {isLoggedIn && <button onClick={() => setShowNewThreadModal(true)} className={btnPrimary}>+ New Thread</button>}
                 </div>
@@ -1065,7 +1240,9 @@ export default function AscendMaxx() {
               {threadsLoading ? (
                 <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
               ) : threads.filter(t => !pinnedIds.includes(t.id)).length === 0 ? (
-                <div className="text-center py-20 text-zinc-600 font-mono text-xs">No posts yet.{isLoggedIn ? ' Be the first.' : ' Log in to post.'}</div>
+                <div className="text-center py-20 text-zinc-600 font-mono text-xs">
+                  No posts yet.{isLoggedIn ? ' Be the first.' : ' Log in to post.'}
+                </div>
               ) : threads.filter(t => !pinnedIds.includes(t.id)).map(t => <ThreadCard key={t.id} thread={t} />)}
             </div>
           )}
@@ -1074,7 +1251,9 @@ export default function AscendMaxx() {
 
           {currentView === 'forums' && !selectedForum && !viewingThread && (
             <div>
-              <div className="px-4 py-3 border-b border-zinc-800"><h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Forums</h2></div>
+              <div className="px-4 py-3 border-b border-zinc-800">
+                <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Forums</h2>
+              </div>
               {forumSections.map(section => (
                 <div key={section}>
                   <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800 text-[10px] font-mono uppercase tracking-widest text-zinc-500">{section}</div>
@@ -1097,52 +1276,71 @@ export default function AscendMaxx() {
                   <button className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 uppercase tracking-widest mb-0.5 block" onClick={() => setSelectedForum(null)}>Forums /</button>
                   <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">{selectedForum.name}</h2>
                 </div>
-                {isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && <button onClick={() => setShowNewThreadModal(true)} className={btnPrimary}>+ New Thread</button>}
+                {isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && (
+                  <button onClick={() => setShowNewThreadModal(true)} className={btnPrimary}>+ New Thread</button>
+                )}
               </div>
-              {threadsLoading ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
-                : visibleThreads.length === 0 ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">No threads yet.{isLoggedIn && (selectedForum.id !== 2 || isDeveloper) ? ' Start one.' : ''}</div>
-                : visibleThreads.map(t => <ThreadCard key={t.id} thread={t} />)}
+              {threadsLoading
+                ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
+                : visibleThreads.length === 0
+                  ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">No threads yet.{isLoggedIn && (selectedForum.id !== 2 || isDeveloper) ? ' Start one.' : ''}</div>
+                  : visibleThreads.map(t => <ThreadCard key={t.id} thread={t} />)
+              }
             </div>
           )}
 
           {currentView === 'members' && (
             <div>
-              <div className="px-4 py-3 border-b border-zinc-800"><h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Members</h2></div>
+              <div className="px-4 py-3 border-b border-zinc-800">
+                <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Members</h2>
+              </div>
               <MembersList openProfile={openProfile} presenceMap={presenceMap} startDM={startDM} currentUid={currentUid} />
             </div>
           )}
 
           {currentView === 'dms' && (
             <div>
-              <div className="px-4 py-3 border-b border-zinc-800"><h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Direct Messages</h2></div>
-              {!isLoggedIn ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">Log in to use direct messages.</div> : (
+              <div className="px-4 py-3 border-b border-zinc-800">
+                <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Direct Messages</h2>
+              </div>
+              {!isLoggedIn ? (
+                <div className="text-center py-20 text-zinc-600 font-mono text-xs">Log in to use direct messages.</div>
+              ) : (
                 <div className="flex h-[calc(100vh-7rem)]">
                   <div className="w-44 sm:w-56 flex-shrink-0 border-r border-zinc-800 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                     <div className="p-2 border-b border-zinc-800">
                       <input value={dmSearch} onChange={e => setDmSearch(e.target.value)} placeholder="Search users..."
                         className="w-full bg-zinc-900 border border-zinc-700 px-2 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600" />
                     </div>
-                    {dmSearch.trim() ? dmSearchResults.map((u: any) => (
-                      <button key={u.uid} onClick={() => { setDmSearch(''); startDM(u.uid, u.username); }}
-                        className="w-full flex items-center gap-2 p-2 hover:bg-zinc-900 border-b border-zinc-800 text-left">
-                        <Avatar src={u.avatar} username={u.username} size={24} />
-                        <span className="text-xs font-mono text-zinc-300 truncate">{u.username}</span>
-                      </button>
-                    )) : conversations.length === 0 ? <div className="p-4 text-zinc-600 text-xs font-mono text-center mt-8">No messages yet.</div>
-                    : conversations.map(c => (
-                      <button key={c.id} onClick={() => setActiveConvo(c)}
-                        className={`w-full flex items-center gap-2 p-3 hover:bg-zinc-900 transition border-b border-zinc-800 ${activeConvo?.id === c.id ? 'bg-zinc-900' : ''}`}>
-                        <Avatar src={c.otherUser?.avatar} username={c.otherUser?.username || '?'} size={28} />
-                        <div className="text-left min-w-0">
-                          <div className="text-xs font-mono text-zinc-200 truncate">{c.otherUser?.username}</div>
-                          <div className="text-[10px] text-zinc-600 truncate font-mono">{c.lastMessage || 'No messages'}</div>
-                        </div>
-                        {c.lastSenderUid !== currentUid && !c.readBy?.[currentUid] && <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full flex-shrink-0 ml-auto" />}
-                      </button>
-                    ))}
+                    {dmSearch.trim()
+                      ? dmSearchResults.map((u: any) => (
+                          <button key={u.uid} onClick={() => { setDmSearch(''); startDM(u.uid, u.username); }}
+                            className="w-full flex items-center gap-2 p-2 hover:bg-zinc-900 border-b border-zinc-800 text-left">
+                            <Avatar src={u.avatar} username={u.username} size={24} />
+                            <span className="text-xs font-mono text-zinc-300 truncate">{u.username}</span>
+                          </button>
+                        ))
+                      : conversations.length === 0
+                        ? <div className="p-4 text-zinc-600 text-xs font-mono text-center mt-8">No messages yet.</div>
+                        : conversations.map(c => (
+                            <button key={c.id} onClick={() => setActiveConvo(c)}
+                              className={`w-full flex items-center gap-2 p-3 hover:bg-zinc-900 transition border-b border-zinc-800 ${activeConvo?.id === c.id ? 'bg-zinc-900' : ''}`}>
+                              <Avatar src={c.otherUser?.avatar} username={c.otherUser?.username || '?'} size={28} />
+                              <div className="text-left min-w-0">
+                                <div className="text-xs font-mono text-zinc-200 truncate">{c.otherUser?.username}</div>
+                                <div className="text-[10px] text-zinc-600 truncate font-mono">{c.lastMessage || 'No messages'}</div>
+                              </div>
+                              {c.lastSenderUid !== currentUid && !c.readBy?.[currentUid] && (
+                                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full flex-shrink-0 ml-auto" />
+                              )}
+                            </button>
+                          ))
+                    }
                   </div>
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    {!activeConvo ? <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs font-mono">Select a conversation</div> : (
+                    {!activeConvo ? (
+                      <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs font-mono">Select a conversation</div>
+                    ) : (
                       <>
                         <div className="px-4 py-2.5 border-b border-zinc-800 flex items-center gap-2">
                           <Avatar src={activeConvo.otherUser?.avatar} username={activeConvo.otherUser?.username || '?'} size={24} />
@@ -1151,13 +1349,17 @@ export default function AscendMaxx() {
                         <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ scrollbarWidth: 'none' }}>
                           {messages.map(m => (
                             <div key={m.id} className={`flex ${m.senderUid === currentUid ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`max-w-[70%] px-3 py-2 text-xs font-mono ${m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'}`}>{m.text}</div>
+                              <div className={`max-w-[70%] px-3 py-2 text-xs font-mono ${m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
+                                {m.text}
+                              </div>
                             </div>
                           ))}
                           <div ref={messagesEndRef} />
                         </div>
                         <div className="px-3 py-2 border-t border-zinc-800 flex gap-2">
-                          <input value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..." className={`${inputCls} flex-1`} />
+                          <input value={dmInput} onChange={e => setDmInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
+                            className={`${inputCls} flex-1`} />
                           <button onClick={sendDM} className={btnPrimary}>Send</button>
                         </div>
                       </>
@@ -1172,7 +1374,9 @@ export default function AscendMaxx() {
             <div className="p-6 sm:p-10 max-w-2xl">
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">About AscendMaxx</h1>
-                {isDeveloper && !editingAbout && <button onClick={() => { setAboutDraft(aboutText); setEditingAbout(true); }} className={btnSecondary}>Edit</button>}
+                {isDeveloper && !editingAbout && (
+                  <button onClick={() => { setAboutDraft(aboutText); setEditingAbout(true); }} className={btnSecondary}>Edit</button>
+                )}
               </div>
               {editingAbout ? (
                 <div>
@@ -1182,7 +1386,9 @@ export default function AscendMaxx() {
                     <button onClick={async () => { setAboutText(aboutDraft); setEditingAbout(false); await setDoc(doc(db, 'settings', 'about'), { text: aboutDraft }); }} className={btnPrimary}>Save</button>
                   </div>
                 </div>
-              ) : <p className="text-sm text-zinc-400 leading-relaxed font-mono whitespace-pre-wrap">{aboutText}</p>}
+              ) : (
+                <p className="text-sm text-zinc-400 leading-relaxed font-mono whitespace-pre-wrap">{aboutText}</p>
+              )}
             </div>
           )}
         </div>
@@ -1197,9 +1403,13 @@ export default function AscendMaxx() {
         AI Analysis
       </button>
 
-      {/* PROFILE MODAL */}
+      {/* ── PROFILE MODAL ─────────────────────────────────────────────────── */}
       {viewingProfile && (() => {
         const profTotal = (viewingProfile.threadCount || 0) + (viewingProfile.replyCount || 0);
+        const profRep = viewingProfile.rep || 0;
+        const canRepProfile = isLoggedIn && currentUid && viewingProfile.uid !== currentUid && !repGivenMap[viewingProfile.uid];
+        const alreadyReppedProfile = !!repGivenMap[viewingProfile.uid];
+
         return (
           <Modal onClose={() => setViewingProfile(null)} maxW="max-w-md">
             <div className="border-b border-zinc-800 px-5 py-4 flex items-center justify-between">
@@ -1208,17 +1418,19 @@ export default function AscendMaxx() {
                 <div>
                   <div className="font-mono font-bold text-zinc-100">{viewingProfile.username}</div>
                   <div className="mt-1">
-                    <RankTag total={profTotal} color={viewingProfile.tagColor} bgColor={viewingProfile.tagBgColor} textColor={viewingProfile.tagTextColor} />
+                    {/* CHANGE 1 + 2: Pass username so dev gets ADMIN tag correctly */}
+                    <RankTag total={profTotal} color={viewingProfile.tagColor} bgColor={viewingProfile.tagBgColor} textColor={viewingProfile.tagTextColor} tagLabel={viewingProfile.tagLabel} username={viewingProfile.username} />
                   </div>
                   <div className="text-[10px] font-mono text-zinc-600 mt-1">
-                    Member since {viewingProfile.createdAt?.toDate ? viewingProfile.createdAt.toDate().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '2026'}
+                    Member since {viewingProfile.createdAt?.toDate
+                      ? viewingProfile.createdAt.toDate().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+                      : '2026'}
                   </div>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2">
                 {isDeveloper && (
-                  <button
-                    onClick={() => openDevTagEditor(viewingProfile)}
+                  <button onClick={() => openDevTagEditor(viewingProfile)}
                     className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2 py-1 transition uppercase tracking-widest">
                     Edit Tag
                   </button>
@@ -1226,23 +1438,55 @@ export default function AscendMaxx() {
                 <button onClick={() => setViewingProfile(null)} className="text-zinc-600 hover:text-zinc-300 font-mono text-sm">x</button>
               </div>
             </div>
+
             {viewingProfile.bio && (
               <div className="px-5 py-3 border-b border-zinc-800">
                 <p className="text-xs font-mono text-zinc-400 leading-relaxed">{viewingProfile.bio}</p>
               </div>
             )}
+
+            {/* CHANGE 3: Rep display and Rep+1 button in profile */}
+            <div className="px-5 py-3 border-b border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-lg font-mono font-bold text-amber-400">{profRep}</div>
+                  <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Rep</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-mono font-bold text-zinc-200">{profTotal}</div>
+                  <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Messages</div>
+                </div>
+              </div>
+              {/* Rep+1 button — only shows when logged in and viewing someone else's profile */}
+              {isLoggedIn && viewingProfile.uid !== currentUid && (
+                <button
+                  onClick={() => giveRep(viewingProfile.uid)}
+                  disabled={alreadyReppedProfile}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-colors border ${
+                    alreadyReppedProfile
+                      ? 'border-zinc-800 text-zinc-600 cursor-not-allowed'
+                      : 'border-amber-700 text-amber-400 hover:bg-amber-950 hover:border-amber-500'
+                  }`}
+                  title={alreadyReppedProfile ? 'Already repped' : 'Give +1 rep'}>
+                  {alreadyReppedProfile ? '✓ Repped' : '▲ Rep +1'}
+                </button>
+              )}
+            </div>
+
             <div className="grid grid-cols-3 border-b border-zinc-800">
-              {[
+              {([
                 ['Threads', viewingProfile.threadCount || 0, null],
                 ['Followers', viewingProfile.followerCount || 0, () => { loadFollowersFollowing(viewingProfile.uid); setShowFollowers(true); }],
                 ['Following', viewingProfile.followingCount || 0, () => { loadFollowersFollowing(viewingProfile.uid); setShowFollowing(true); }],
-              ].map(([label, val, fn]: any) => (
-                <button key={label} onClick={fn} className={`py-4 text-center border-r border-zinc-800 last:border-none ${fn ? 'hover:bg-zinc-900 transition-colors' : ''}`}>
+              ] as [string, number, (() => void) | null][]).map(([label, val, fn]) => (
+                <button key={label} onClick={fn ?? undefined}
+                  className={`py-4 text-center border-r border-zinc-800 last:border-none ${fn ? 'hover:bg-zinc-900 transition-colors' : ''}`}>
                   <div className="font-mono font-bold text-zinc-100 text-base">{val}</div>
                   <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mt-0.5">{label}</div>
                 </button>
               ))}
             </div>
+
             <div className="px-5 py-4 flex gap-2">
               {isLoggedIn && viewingProfile.uid !== currentUid && (
                 <>
@@ -1251,14 +1495,19 @@ export default function AscendMaxx() {
                     {followingList.includes(viewingProfile.uid) ? 'Following' : 'Follow'}
                   </button>
                   <button onClick={() => startDM(viewingProfile.uid, viewingProfile.username)}
-                    className="flex-1 py-2.5 border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 text-xs font-mono uppercase tracking-wider transition-colors">Message</button>
+                    className="flex-1 py-2.5 border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 text-xs font-mono uppercase tracking-wider transition-colors">
+                    Message
+                  </button>
                 </>
               )}
               {isLoggedIn && viewingProfile.uid === currentUid && (
                 <button onClick={() => { setProfileBio(currentUserData?.bio || ''); setProfileAvatar(currentUserData?.avatar || ''); setProfileTagColor(currentUserData?.tagColor || ''); setShowEditProfile(true); }}
-                  className="flex-1 py-2.5 border border-zinc-700 hover:border-zinc-500 text-zinc-400 text-xs font-mono uppercase tracking-wider transition-colors">Edit Profile</button>
+                  className="flex-1 py-2.5 border border-zinc-700 hover:border-zinc-500 text-zinc-400 text-xs font-mono uppercase tracking-wider transition-colors">
+                  Edit Profile
+                </button>
               )}
             </div>
+
             {threads.filter(t => t.author === viewingProfile.username).length > 0 && (
               <div className="border-t border-zinc-800">
                 <div className="px-5 py-2 text-[10px] font-mono uppercase tracking-widest text-zinc-600">Recent Threads</div>
@@ -1274,26 +1523,42 @@ export default function AscendMaxx() {
         );
       })()}
 
-      {/* DEV TAG EDITOR MODAL */}
+      {/* ── DEV TAG EDITOR ────────────────────────────────────────────────── */}
       {showDevTagEditor && devTagTarget && (
-        <div className="fixed inset-0 bg-black/90 z-[500] flex items-center justify-center p-4">
-          <div className="bg-zinc-950 border border-zinc-800 w-full max-w-sm">
+        <div className="fixed inset-0 bg-black/90 z-[500] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-zinc-950 border border-zinc-800 w-full max-w-sm my-4">
             <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
               <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Edit Tag — {devTagTarget.username}</span>
               <button onClick={() => setShowDevTagEditor(false)} className="text-zinc-600 font-mono text-sm">x</button>
             </div>
             <div className="p-5 space-y-5">
-              {/* Live preview */}
               <div className="flex items-center gap-3 p-3 bg-zinc-900/50 border border-zinc-800">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Preview:</span>
                 <RankTag
-                  total={(devTagTarget.threadCount||0)+(devTagTarget.replyCount||0)}
+                  total={(devTagTarget.threadCount || 0) + (devTagTarget.replyCount || 0)}
                   bgColor={devTagBgColor}
                   textColor={devTagTextColor}
+                  tagLabel={devTagLabel}
+                  username={devTagTarget.username}
                 />
               </div>
-
-              {/* Background colour */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">
+                  Custom Tag Text <span className="text-zinc-700 normal-case">(leave blank for default rank)</span>
+                </label>
+                <input
+                  type="text"
+                  value={devTagLabel}
+                  onChange={e => setDevTagLabel(e.target.value)}
+                  placeholder="e.g. Admin, Mod, Legend..."
+                  className="w-full bg-black border border-zinc-700 px-3 py-2 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600"
+                />
+                {devTagLabel && (
+                  <button onClick={() => setDevTagLabel('')} className="mt-1 text-[10px] font-mono text-zinc-600 hover:text-red-400 transition">
+                    clear (revert to rank)
+                  </button>
+                )}
+              </div>
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">Tag Background Colour</label>
                 <div className="flex items-center gap-3 mb-2">
@@ -1310,8 +1575,6 @@ export default function AscendMaxx() {
                   ))}
                 </div>
               </div>
-
-              {/* Text colour */}
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">Tag Text Colour</label>
                 <div className="flex items-center gap-3 mb-2">
@@ -1333,17 +1596,18 @@ export default function AscendMaxx() {
                   ))}
                 </div>
               </div>
-
               <div className="flex gap-2 pt-1">
                 <button onClick={() => setShowDevTagEditor(false)} className={btnSecondary}>Cancel</button>
-                <button onClick={saveDevTag} disabled={savingDevTag} className={btnPrimary}>{savingDevTag ? 'Saving...' : 'Save Tag'}</button>
+                <button onClick={saveDevTag} disabled={savingDevTag} className={btnPrimary}>
+                  {savingDevTag ? 'Saving...' : 'Save Tag'}
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* EDIT ANNOUNCEMENT */}
+      {/* ── EDIT ANNOUNCEMENT ─────────────────────────────────────────────── */}
       {editingAnnouncement && (
         <Modal onClose={() => setEditingAnnouncement(false)} maxW="max-w-lg">
           <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
@@ -1361,13 +1625,15 @@ export default function AscendMaxx() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setEditingAnnouncement(false)} className={btnSecondary}>Cancel</button>
-              <button onClick={async () => { await setDoc(doc(db, 'settings', 'announcement'), { title: annDraft.title, description: annDraft.description }); setEditingAnnouncement(false); }} className={btnPrimary}>Save Announcement</button>
+              <button onClick={async () => { await setDoc(doc(db, 'settings', 'announcement'), { title: annDraft.title, description: annDraft.description }); setEditingAnnouncement(false); }} className={btnPrimary}>
+                Save Announcement
+              </button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* FOLLOWERS */}
+      {/* ── FOLLOWERS ─────────────────────────────────────────────────────── */}
       {showFollowers && (
         <div className="fixed inset-0 bg-black/80 z-[400] flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800 w-full max-w-xs max-h-[70vh] overflow-y-auto">
@@ -1375,19 +1641,21 @@ export default function AscendMaxx() {
               <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Followers</span>
               <button onClick={() => setShowFollowers(false)} className="text-zinc-600 font-mono text-sm">x</button>
             </div>
-            {profileFollowers.length === 0 ? <p className="text-zinc-600 text-xs font-mono text-center py-8">No followers yet</p>
+            {profileFollowers.length === 0
+              ? <p className="text-zinc-600 text-xs font-mono text-center py-8">No followers yet</p>
               : profileFollowers.map(f => (
-                <button key={f.uid} onClick={() => { setShowFollowers(false); openProfile(f.username); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-900 transition">
-                  <Avatar username={f.username} size={28} />
-                  <span className="text-xs font-mono text-zinc-300">{f.username}</span>
-                </button>
-              ))}
+                  <button key={f.uid} onClick={() => { setShowFollowers(false); openProfile(f.username); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-900 transition">
+                    <Avatar username={f.username} size={28} />
+                    <span className="text-xs font-mono text-zinc-300">{f.username}</span>
+                  </button>
+                ))
+            }
           </div>
         </div>
       )}
 
-      {/* FOLLOWING */}
+      {/* ── FOLLOWING ─────────────────────────────────────────────────────── */}
       {showFollowing && (
         <div className="fixed inset-0 bg-black/80 z-[400] flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800 w-full max-w-xs max-h-[70vh] overflow-y-auto">
@@ -1395,19 +1663,21 @@ export default function AscendMaxx() {
               <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Following</span>
               <button onClick={() => setShowFollowing(false)} className="text-zinc-600 font-mono text-sm">x</button>
             </div>
-            {profileFollowing.length === 0 ? <p className="text-zinc-600 text-xs font-mono text-center py-8">Not following anyone</p>
+            {profileFollowing.length === 0
+              ? <p className="text-zinc-600 text-xs font-mono text-center py-8">Not following anyone</p>
               : profileFollowing.map(f => (
-                <button key={f.uid} onClick={() => { setShowFollowing(false); openProfile(f.username); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-900 transition">
-                  <Avatar username={f.username} size={28} />
-                  <span className="text-xs font-mono text-zinc-300">{f.username}</span>
-                </button>
-              ))}
+                  <button key={f.uid} onClick={() => { setShowFollowing(false); openProfile(f.username); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-900 transition">
+                    <Avatar username={f.username} size={28} />
+                    <span className="text-xs font-mono text-zinc-300">{f.username}</span>
+                  </button>
+                ))
+            }
           </div>
         </div>
       )}
 
-      {/* EDIT PROFILE */}
+      {/* ── EDIT PROFILE ──────────────────────────────────────────────────── */}
       {showEditProfile && (() => {
         const myTotal = (currentUserData?.threadCount || 0) + (currentUserData?.replyCount || 0);
         const isThreadmaxxer = getRank(myTotal).isThreadmaxxer;
@@ -1424,10 +1694,13 @@ export default function AscendMaxx() {
                     Change Photo
                     <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                   </label>
-                  {profileAvatar && <button onClick={() => setProfileAvatar('')} className="text-red-500 text-xs font-mono">Remove</button>}
+                  {profileAvatar && (
+                    <button onClick={() => setProfileAvatar('')} className="text-red-500 text-xs font-mono">Remove</button>
+                  )}
                 </div>
                 <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Bio</label>
-                <textarea value={profileBio} onChange={e => setProfileBio(e.target.value)} placeholder="Tell the community about yourself..." rows={4} className={`${inputCls} resize-none mb-4`} />
+                <textarea value={profileBio} onChange={e => setProfileBio(e.target.value)}
+                  placeholder="Tell the community about yourself..." rows={4} className={`${inputCls} resize-none mb-4`} />
                 {isThreadmaxxer && (
                   <div className="mb-4">
                     <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">Threadmaxxer Tag Colour</label>
@@ -1440,13 +1713,15 @@ export default function AscendMaxx() {
                     </div>
                     <div className="mt-2">
                       <span className="text-[10px] font-mono text-zinc-500">Preview: </span>
-                      <RankTag total={200} color={profileTagColor || currentUserData?.tagColor} />
+                      <RankTag total={200} color={profileTagColor || currentUserData?.tagColor} tagLabel={currentUserData?.tagLabel} />
                     </div>
                   </div>
                 )}
                 <div className="flex gap-2">
                   <button onClick={() => setShowEditProfile(false)} className={btnSecondary}>Cancel</button>
-                  <button onClick={saveProfile} disabled={savingProfile} className={btnPrimary}>{savingProfile ? 'Saving...' : 'Save'}</button>
+                  <button onClick={saveProfile} disabled={savingProfile} className={btnPrimary}>
+                    {savingProfile ? 'Saving...' : 'Save'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -1454,7 +1729,7 @@ export default function AscendMaxx() {
         );
       })()}
 
-      {/* NEW THREAD */}
+      {/* ── NEW THREAD ────────────────────────────────────────────────────── */}
       {showNewThreadModal && (
         <Modal onClose={() => setShowNewThreadModal(false)} maxW="max-w-2xl">
           <div className="px-5 py-3 border-b border-zinc-800">
@@ -1479,57 +1754,74 @@ export default function AscendMaxx() {
                 {newThreadImages.map((img, i) => (
                   <div key={i} className="relative">
                     <img src={img} alt="" className="h-14 w-14 object-cover border border-zinc-700" />
-                    <button onClick={() => setNewThreadImages(prev => prev.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 bg-red-600 text-white w-4 h-4 text-xs flex items-center justify-center font-mono">x</button>
+                    <button onClick={() => setNewThreadImages(prev => prev.filter((_, j) => j !== i))}
+                      className="absolute -top-1.5 -right-1.5 bg-red-600 text-white w-4 h-4 text-xs flex items-center justify-center font-mono">x</button>
                   </div>
                 ))}
               </div>
             )}
             <div className="flex gap-2 pt-1">
               <button onClick={() => { setShowNewThreadModal(false); setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]); }} className={btnSecondary}>Cancel</button>
-              <button onClick={createThread} disabled={postingThread} className={btnPrimary}>{postingThread ? 'Posting...' : 'Post Thread'}</button>
+              <button onClick={createThread} disabled={postingThread} className={btnPrimary}>
+                {postingThread ? 'Posting...' : 'Post Thread'}
+              </button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* LOGIN */}
+      {/* ── LOGIN ─────────────────────────────────────────────────────────── */}
       {showLogin && (
         <div className="fixed inset-0 bg-black/90 z-[400] flex items-end sm:items-center justify-center">
           <div className="bg-zinc-950 border border-zinc-800 w-full sm:max-w-sm">
-            <div className="px-5 py-3 border-b border-zinc-800"><span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Log In</span></div>
+            <div className="px-5 py-3 border-b border-zinc-800">
+              <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Log In</span>
+            </div>
             <div className="p-5 space-y-3">
               {loginError && <p className="text-red-400 text-xs font-mono border border-red-800 px-3 py-2">{loginError}</p>}
-              <input type="email" placeholder="Email" value={loginData.email} onChange={e => setLoginData({ ...loginData, email: e.target.value })} className={inputCls} />
-              <input type="password" placeholder="Password" value={loginData.password} onChange={e => setLoginData({ ...loginData, password: e.target.value })} onKeyDown={e => e.key === 'Enter' && login()} className={inputCls} />
+              <input type="email" placeholder="Email" value={loginData.email}
+                onChange={e => setLoginData({ ...loginData, email: e.target.value })} className={inputCls} />
+              <input type="password" placeholder="Password" value={loginData.password}
+                onChange={e => setLoginData({ ...loginData, password: e.target.value })}
+                onKeyDown={e => e.key === 'Enter' && login()} className={inputCls} />
               <div className="flex gap-2 pt-1">
                 <button onClick={() => { setShowLogin(false); setLoginError(''); }} className={btnSecondary}>Cancel</button>
-                <button onClick={login} disabled={loginLoading} className={btnPrimary}>{loginLoading ? 'Logging in...' : 'Log In'}</button>
+                <button onClick={login} disabled={loginLoading} className={btnPrimary}>
+                  {loginLoading ? 'Logging in...' : 'Log In'}
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* REGISTER */}
+      {/* ── REGISTER ──────────────────────────────────────────────────────── */}
       {showRegister && (
         <div className="fixed inset-0 bg-black/90 z-[400] flex items-end sm:items-center justify-center">
           <div className="bg-zinc-950 border border-zinc-800 w-full sm:max-w-sm">
-            <div className="px-5 py-3 border-b border-zinc-800"><span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Create Account</span></div>
+            <div className="px-5 py-3 border-b border-zinc-800">
+              <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Create Account</span>
+            </div>
             <div className="p-5 space-y-3">
               {registerError && <p className="text-red-400 text-xs font-mono border border-red-800 px-3 py-2">{registerError}</p>}
-              <input type="text" placeholder="Username (min 3 chars)" value={registerData.username} onChange={e => setRegisterData({ ...registerData, username: e.target.value })} className={inputCls} />
-              <input type="email" placeholder="Email" value={registerData.email} onChange={e => setRegisterData({ ...registerData, email: e.target.value })} className={inputCls} />
-              <input type="password" placeholder="Password (min 6 chars)" value={registerData.password} onChange={e => setRegisterData({ ...registerData, password: e.target.value })} className={inputCls} />
+              <input type="text" placeholder="Username (min 3 chars)" value={registerData.username}
+                onChange={e => setRegisterData({ ...registerData, username: e.target.value })} className={inputCls} />
+              <input type="email" placeholder="Email" value={registerData.email}
+                onChange={e => setRegisterData({ ...registerData, email: e.target.value })} className={inputCls} />
+              <input type="password" placeholder="Password (min 6 chars)" value={registerData.password}
+                onChange={e => setRegisterData({ ...registerData, password: e.target.value })} className={inputCls} />
               <div className="flex gap-2 pt-1">
                 <button onClick={() => { setShowRegister(false); setRegisterError(''); }} className={btnSecondary}>Cancel</button>
-                <button onClick={register} disabled={registerLoading} className={btnPrimary}>{registerLoading ? 'Creating...' : 'Register'}</button>
+                <button onClick={register} disabled={registerLoading} className={btnPrimary}>
+                  {registerLoading ? 'Creating...' : 'Register'}
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* AI MODAL */}
+      {/* ── AI MODAL ──────────────────────────────────────────────────────── */}
       {showRateModal && (
         <Modal onClose={() => setShowRateModal(false)} maxW="max-w-2xl">
           <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
@@ -1546,21 +1838,37 @@ export default function AscendMaxx() {
                 <div className="border border-dashed border-zinc-700 p-6 text-center">
                   <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="face" />
                   <label htmlFor="face" className="cursor-pointer block">
-                    {imagePreview ? <img src={imagePreview} className="max-h-56 mx-auto" alt="preview" /> : <div className="py-8 text-zinc-600 text-xs font-mono">Click to upload a photo</div>}
+                    {imagePreview
+                      ? <img src={imagePreview} className="max-h-56 mx-auto" alt="preview" />
+                      : <div className="py-8 text-zinc-600 text-xs font-mono">Click to upload a photo</div>
+                    }
                   </label>
                 </div>
-                <textarea value={faceDescription} onChange={e => setFaceDescription(e.target.value)} placeholder="Age, height, other details..." className={`${inputCls} resize-none h-20`} />
-                <button onClick={analyzeFace} disabled={isAnalyzing} className={btnPrimary + ' w-full'}>{isAnalyzing ? 'Analyzing...' : 'Run Analysis'}</button>
-                {aiRating && <div className="border border-zinc-700 p-4 bg-black"><p className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-xs font-mono">{aiRating.raw}</p></div>}
-                {aiRating && isLoggedIn && <button onClick={postAiRating} className={btnSecondary + ' w-full'}>Post to Rate Me Forum</button>}
+                <textarea value={faceDescription} onChange={e => setFaceDescription(e.target.value)}
+                  placeholder="Age, height, other details..." className={`${inputCls} resize-none h-20`} />
+                <button onClick={analyzeFace} disabled={isAnalyzing} className={btnPrimary + ' w-full'}>
+                  {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
+                </button>
+                {aiRating && (
+                  <div className="border border-zinc-700 p-4 bg-black">
+                    <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-xs font-mono">{aiRating.raw}</p>
+                  </div>
+                )}
+                {aiRating && isLoggedIn && (
+                  <button onClick={postAiRating} className={btnSecondary + ' w-full'}>Post to Rate Me Forum</button>
+                )}
               </div>
             )}
-            {ratingMode === 'community' && <div className="text-center py-10 text-zinc-600 text-xs font-mono">Post your photo in the Rate Me forum for community feedback.</div>}
+            {ratingMode === 'community' && (
+              <div className="text-center py-10 text-zinc-600 text-xs font-mono">
+                Post your photo in the Rate Me forum for community feedback.
+              </div>
+            )}
           </div>
         </Modal>
       )}
 
-      {/* THEME PICKER */}
+      {/* ── THEME PICKER ──────────────────────────────────────────────────── */}
       {showThemePicker && (
         <div className="fixed bottom-14 left-4 sm:bottom-16 sm:left-4 bg-zinc-950 border border-zinc-800 p-4 z-50">
           <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-3">Theme</p>
@@ -1577,14 +1885,21 @@ export default function AscendMaxx() {
       )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex sm:hidden z-50">
-        {[['Home','home'],['Forums','forums'],['DMs','dms'],['Members','members']].map(([label, view]) => (
-          <button key={view} onClick={() => { setCurrentView(view as View); if (view !== 'forums') setSelectedForum(null); setViewingThread(null); }}
-            className={`flex-1 py-2.5 text-[10px] font-mono uppercase tracking-wider transition-colors ${currentView === view ? 'text-emerald-400' : 'text-zinc-600'}`}>
-            {label}
-            {view === 'dms' && dmUnread > 0 && <span className="ml-1 text-emerald-400">({dmUnread})</span>}
-          </button>
-        ))}
-        <button onClick={() => setShowThemePicker(v => !v)} className="flex-1 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600">Theme</button>
+        {(['Home','Forums','DMs','Members'] as const).map((label) => {
+          const view = label.toLowerCase() as View;
+          return (
+            <button key={view}
+              onClick={() => { setCurrentView(view); if (view !== 'forums') setSelectedForum(null); setViewingThread(null); }}
+              className={`flex-1 py-2.5 text-[10px] font-mono uppercase tracking-wider transition-colors ${currentView === view ? 'text-emerald-400' : 'text-zinc-600'}`}>
+              {label}
+              {view === 'dms' && dmUnread > 0 && <span className="ml-1 text-emerald-400">({dmUnread})</span>}
+            </button>
+          );
+        })}
+        <button onClick={() => setShowThemePicker(v => !v)}
+          className="flex-1 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600">
+          Theme
+        </button>
       </div>
 
       <button onClick={() => setShowThemePicker(v => !v)}
