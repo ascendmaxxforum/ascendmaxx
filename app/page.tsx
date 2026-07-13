@@ -416,6 +416,11 @@ export default function AscendMaxx() {
         }));
         setConversations(convos);
         setDmUnread(convos.filter(c => (c as any).lastSenderUid !== currentUid && !(c as any).readBy?.[currentUid]).length);
+      },
+      // CHANGE: surface listener errors (e.g. missing composite index, rule
+      // denials) instead of failing silently and leaving the DM list empty.
+      (err) => {
+        console.error('conversations listener error:', err);
       }
     );
     return () => unsub();
@@ -428,6 +433,9 @@ export default function AscendMaxx() {
       (snap) => {
         setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      },
+      (err) => {
+        console.error('messages listener error:', err);
       }
     );
     updateDoc(doc(db, 'conversations', activeConvo.id), { [`readBy.${currentUid}`]: true }).catch(() => {});
@@ -1040,7 +1048,7 @@ export default function AscendMaxx() {
           ))}
         </div>
       ))}
-      <div className="lg:hidden border-t border-zinc-800 mt-2"><StatsPanel /></div>
+      <div className="lg:hidden border-t border-zinc-800 mt-2">{StatsPanel()}</div>
     </div>
   ), [selectedForum, StatsPanel]);
 
@@ -1149,7 +1157,7 @@ export default function AscendMaxx() {
           <span className="text-emerald-500 font-mono font-bold text-sm tracking-widest">ASCENDMAXX</span>
           <button onClick={() => setSidebarOpen(false)} className="text-zinc-500 hover:text-zinc-200 text-lg font-mono">x</button>
         </div>
-        <SidebarContent />
+        {SidebarContent()}
       </div>
 
       <nav className="bg-zinc-950 border-b border-zinc-800 sticky top-0 z-50">
@@ -1212,11 +1220,11 @@ export default function AscendMaxx() {
         </div>
       </nav>
 
-      {showDmPanel && isLoggedIn && <DmPanel />}
+      {showDmPanel && isLoggedIn && DmPanel()}
 
       <div className="max-w-7xl mx-auto flex">
         <div className="hidden lg:block w-48 flex-shrink-0 border-r border-zinc-800 min-h-screen sticky top-11 h-[calc(100vh-2.75rem)] overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-          <SidebarContent />
+          {SidebarContent()}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -1247,7 +1255,7 @@ export default function AscendMaxx() {
             </div>
           )}
 
-          {viewingThread && <ThreadView />}
+          {viewingThread && ThreadView()}
 
           {currentView === 'forums' && !selectedForum && !viewingThread && (
             <div>
@@ -1394,7 +1402,7 @@ export default function AscendMaxx() {
         </div>
 
         <div className="hidden lg:block w-56 flex-shrink-0 border-l border-zinc-800 sticky top-11 h-[calc(100vh-2.75rem)] overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-          <StatsPanel />
+          {StatsPanel()}
         </div>
       </div>
 
