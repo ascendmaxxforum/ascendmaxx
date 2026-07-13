@@ -161,7 +161,7 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
           {m.bio && <div className="text-[10px] font-mono text-zinc-600 truncate mt-0.5">{m.bio}</div>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="text-right text-[10px] font-mono text-zinc-600">{total} posts</div>
+          <div className="text-right text-[10px] font-mono text-zinc-600">{m.threadCount || 0}t · {m.replyCount || 0}r</div>
           {m.uid !== currentUid && (
             <button onClick={() => startDM(m.uid, m.username)}
               className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2 py-1 transition">
@@ -199,7 +199,7 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
 });
 
 export default function AscendMaxx() {
-  type View = 'home' | 'forums' | 'about' | 'dms' | 'members';
+  type View = 'home' | 'forums' | 'about' | 'dms' | 'members' | 'stickers';
 
   const [currentView, setCurrentView]     = useState<View>('home');
   const [selectedForum, setSelectedForum] = useState<any>(null);
@@ -299,6 +299,28 @@ export default function AscendMaxx() {
   ];
 
   const [showRateModal, setShowRateModal]     = useState(false);
+
+  // ── Stickers ──────────────────────────────────────────────────────────────
+  const [stickers, setStickers]                     = useState<any[]>([]);
+  const [stickerRequests, setStickerRequests]       = useState<any[]>([]);
+  const [showStickerCatalog, setShowStickerCatalog] = useState(false);
+  const [stickerTarget, setStickerTarget]           = useState<'reply'|'dm'|null>(null);
+  const [showAddSticker, setShowAddSticker]         = useState(false);
+  const [newStickerName, setNewStickerName]         = useState('');
+  const [newStickerUrl, setNewStickerUrl]           = useState('');
+  const [addingStickerError, setAddingStickerError] = useState('');
+  const [showRequestSticker, setShowRequestSticker] = useState(false);
+  const [reqStickerName, setReqStickerName]         = useState('');
+  const [reqStickerUrl, setReqStickerUrl]           = useState('');
+  const [showReviewQueue, setShowReviewQueue]       = useState(false);
+  const [showStickersPage, setShowStickersPage]     = useState(false);
+
+  // ── Custom forum topics (dev-created) ─────────────────────────────────────
+  const [customForums, setCustomForums]         = useState<any[]>([]);
+  const [showNewTopicModal, setShowNewTopicModal] = useState(false);
+  const [newTopicSection, setNewTopicSection]   = useState('');
+  const [newTopicName, setNewTopicName]         = useState('');
+  const [addingTopic, setAddingTopic]           = useState(false);
   const [ratingMode, setRatingMode]           = useState<'ai'|'community'>('ai');
   const [imagePreview, setImagePreview]       = useState<string | null>(null);
   const [faceDescription, setFaceDescription] = useState('');
@@ -570,6 +592,37 @@ export default function AscendMaxx() {
     return () => unsub();
   }, [currentUid]);
 
+  // ── Stickers (realtime) ───────────────────────────────────────────────────
+  useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'stickers'), orderBy('createdAt', 'desc')), (snap) => {
+      setStickers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, []);
+
+  // ── Sticker requests (dev only, realtime) ─────────────────────────────────
+  useEffect(() => {
+    if (!isDeveloper) return;
+    const unsub = onSnapshot(query(collection(db, 'stickerRequests'), orderBy('createdAt', 'desc')), (snap) => {
+      setStickerRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [isDeveloper]);
+
+  // ── Custom forum topics (realtime) ────────────────────────────────────────
+  useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'forumTopics'), orderBy('createdAt', 'asc')), (snap) => {
+      setCustomForums(snap.docs.map(d => ({
+        id: d.data().name,
+        firestoreId: d.id,
+        section: d.data().section,
+        name: d.data().name,
+        isCustom: true,
+      })));
+    });
+    return () => unsub();
+  }, []);
+
   // ── Auth ──────────────────────────────────────────────────────────────────
   const register = async () => {
     setRegisterError('');
@@ -703,6 +756,92 @@ export default function AscendMaxx() {
   };
 
   // ── Profile ───────────────────────────────────────────────────────────────
+  // ── Sticker actions ───────────────────────────────────────────────────────
+  const addSticker = async () => {
+    setAddingStickerError('');
+    if (!newStickerName.trim()) { setAddingStickerError('Name required.'); return; }
+    if (!newStickerUrl.trim()) { setAddingStickerError('URL required.'); return; }
+    try {
+      await addDoc(collection(db, 'stickers'), {
+        name: newStickerName.trim(),
+        url: newStickerUrl.trim(),
+        addedBy: currentUser,
+        createdAt: serverTimestamp(),
+      });
+      setNewStickerName(''); setNewStickerUrl(''); setShowAddSticker(false);
+    } catch { setAddingStickerError('Failed to add sticker.'); }
+  };
+
+  const requestSticker = async () => {
+    if (!reqStickerName.trim() || !reqStickerUrl.trim()) { alert('Name and URL required.'); return; }
+    try {
+      await addDoc(collection(db, 'stickerRequests'), {
+        name: reqStickerName.trim(),
+        url: reqStickerUrl.trim(),
+        requestedBy: currentUser,
+        requestedByUid: currentUid,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+      setReqStickerName(''); setReqStickerUrl(''); setShowRequestSticker(false);
+      alert('Sticker request submitted!');
+    } catch { alert('Failed to submit request.'); }
+  };
+
+  const approveSticker = async (req: any) => {
+    try {
+      await addDoc(collection(db, 'stickers'), {
+        name: req.name, url: req.url,
+        addedBy: currentUser, createdAt: serverTimestamp(),
+      });
+      await deleteDoc(doc(db, 'stickerRequests', req.id));
+    } catch { alert('Failed to approve.'); }
+  };
+
+  const rejectSticker = async (reqId: string) => {
+    try { await deleteDoc(doc(db, 'stickerRequests', reqId)); }
+    catch { alert('Failed to reject.'); }
+  };
+
+  const insertSticker = (url: string) => {
+    if (stickerTarget === 'reply') {
+      setReplyText(prev => prev + `\n[sticker:${url}]`);
+    } else if (stickerTarget === 'dm') {
+      setDmInput(prev => prev + `\n[sticker:${url}]`);
+    }
+    setShowStickerCatalog(false);
+    setStickerTarget(null);
+  };
+
+  // ── Custom forum topic actions ─────────────────────────────────────────────
+  const createForumTopic = async () => {
+    if (!newTopicName.trim()) { alert('Topic name required.'); return; }
+    if (!newTopicSection) { alert('Section required.'); return; }
+    setAddingTopic(true);
+    try {
+      await addDoc(collection(db, 'forumTopics'), {
+        name: newTopicName.trim(),
+        section: newTopicSection,
+        createdBy: currentUser,
+        createdAt: serverTimestamp(),
+      });
+      setNewTopicName(''); setShowNewTopicModal(false);
+    } catch { alert('Failed to create topic.'); }
+    setAddingTopic(false);
+  };
+
+  // ── Render sticker text with images inline ────────────────────────────────
+  const renderWithStickers = (text: string) => {
+    const parts = text.split(/(\[sticker:[^\]]+\])/g);
+    return parts.map((part, i) => {
+      const match = part.match(/^\[sticker:(.+)\]$/);
+      if (match) {
+        return <img key={i} src={match[1]} alt="sticker" className="max-h-24 max-w-[150px] object-contain inline-block my-1" />;
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
   const openProfile = useCallback(async (username: string) => {
     try {
       const unameSnap = await getDoc(doc(db, 'usernames', username.toLowerCase()));
@@ -951,11 +1090,12 @@ export default function AscendMaxx() {
             {/* CHANGE 2: pass username for dev ADMIN tag */}
             <RankTag total={total} color={userData?.tagColor} bgColor={userData?.tagBgColor} textColor={userData?.tagTextColor} tagLabel={userData?.tagLabel} username={authorName} />
             <div className="mt-2 w-full space-y-1">
-              {/* CHANGE 4: Messages counter — shows threadCount + replyCount */}
               <div className="text-[9px] font-mono text-zinc-600">
-                Messages: <span className="text-zinc-400">{total}</span>
+                Threads: <span className="text-zinc-400">{userData?.threadCount || 0}</span>
               </div>
-              {/* CHANGE 3: Rep counter in post sidebar */}
+              <div className="text-[9px] font-mono text-zinc-600">
+                Replies: <span className="text-zinc-400">{userData?.replyCount || 0}</span>
+              </div>
               <div className="text-[9px] font-mono text-zinc-600">
                 Rep: <span className="text-amber-400 font-bold">{repCount}</span>
               </div>
@@ -967,7 +1107,7 @@ export default function AscendMaxx() {
               <span className="text-[10px] font-mono text-zinc-600">#{postNum}</span>
             </div>
             <div className="px-4 py-4">
-              <p className="text-sm text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">{text}</p>
+              <div className="text-sm text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">{renderWithStickers(text)}</div>
               {images && images.length > 0 && (
                 <div className="flex gap-3 mt-4 flex-wrap">
                   {images.map((img: string, i: number) => (
@@ -1035,9 +1175,17 @@ export default function AscendMaxx() {
             <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">Leave a reply</div>
             <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
               placeholder="Write your reply..." rows={3} className={`${inputCls} resize-none mb-3`} />
-            <button onClick={postReply} disabled={postingReply || !replyText.trim()} className={btnPrimary}>
-              {postingReply ? 'Posting...' : 'Post Reply'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={postReply} disabled={postingReply || !replyText.trim()} className={btnPrimary}>
+                {postingReply ? 'Posting...' : 'Post Reply'}
+              </button>
+              <button
+                onClick={() => { setStickerTarget('reply'); setShowStickerCatalog(true); }}
+                className={btnSecondary + ' px-3 py-2.5'}
+                title="Insert sticker">
+                🎭 Sticker
+              </button>
+            </div>
           </div>
         ) : (
           <div className="px-4 py-4 border-t border-zinc-800 text-center">
@@ -1046,7 +1194,7 @@ export default function AscendMaxx() {
         )}
       </div>
     );
-  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, openProfile, repGivenMap, currentUid, giveRep]);
+  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget]);
 
   // ── StatsPanel ────────────────────────────────────────────────────────────
   const StatsPanel = useCallback(() => {
@@ -1200,13 +1348,19 @@ export default function AscendMaxx() {
             {messages.map(m => (
               <div key={m.id} className={`flex ${m.senderUid === currentUid ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[75%] px-3 py-2 text-xs font-mono break-words ${m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
-                  {m.text}
+                  {renderWithStickers(m.text)}
                 </div>
               </div>
             ))}
             <div ref={messagesEndRef} />
           </div>
-          <div className="px-3 py-2 border-t border-zinc-800 flex gap-2 flex-shrink-0">
+          <div className="px-3 py-2 border-t border-zinc-800 flex gap-1.5 flex-shrink-0">
+            <button
+              onClick={() => { setStickerTarget('dm'); setShowStickerCatalog(true); }}
+              className="text-zinc-500 hover:text-zinc-200 text-sm px-2 py-1.5 transition-colors flex-shrink-0"
+              title="Stickers">
+              🎭
+            </button>
             <input value={dmInput} onChange={e => setDmInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
               className="flex-1 bg-zinc-900 border border-zinc-700 px-3 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-emerald-600 placeholder-zinc-600" />
@@ -1215,7 +1369,7 @@ export default function AscendMaxx() {
         </>
       )}
     </div>
-  ), [activeConvo, dmSearch, searchingUsers, dmSearchResults, conversations, messages, dmInput, presenceMap, currentUid, startDM, sendDM, dmListenerError]);
+  ), [activeConvo, dmSearch, searchingUsers, dmSearchResults, conversations, messages, dmInput, presenceMap, currentUid, startDM, sendDM, dmListenerError, renderWithStickers]);
 
   if (authLoading) return (
     <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
@@ -1244,7 +1398,7 @@ export default function AscendMaxx() {
               ASCENDMAXX
             </span>
             <div className="hidden sm:flex items-center gap-1 text-xs font-mono">
-              {(['Home','Forums','Members','About'] as const).map(v => (
+              {(['Home','Forums','Members','About','Stickers'] as const).map(v => (
                 <button key={v}
                   onClick={() => {
                     if (v === 'Home') { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }
@@ -1348,21 +1502,88 @@ export default function AscendMaxx() {
 
           {currentView === 'forums' && !selectedForum && !viewingThread && (
             <div>
-              <div className="px-4 py-3 border-b border-zinc-800">
+              <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                 <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Forums</h2>
               </div>
-              {forumSections.map(section => (
-                <div key={section}>
-                  <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800 text-[10px] font-mono uppercase tracking-widest text-zinc-500">{section}</div>
-                  {allForums.filter(f => f.section === section).map(forum => (
-                    <div key={forum.id} onClick={() => setSelectedForum(forum)}
-                      className="flex justify-between items-center px-4 py-3 border-b border-zinc-800 hover:bg-zinc-900/60 cursor-pointer transition-colors">
-                      <span className="text-sm text-zinc-200 font-mono">{forum.name}</span>
-                      <span className="text-xs text-zinc-600 font-mono">{threads.filter(t => t.forumId === forum.id).length} threads</span>
+              {forumSections.map(section => {
+                const sectionForums = [
+                  ...allForums.filter(f => f.section === section),
+                  ...customForums.filter(f => f.section === section),
+                ];
+                return (
+                  <div key={section} className="mb-1">
+                    {/* Section header */}
+                    <div className="px-4 py-2 bg-zinc-900/70 border-y border-zinc-800 flex items-center justify-between">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-zinc-400">{section}</span>
+                      {isDeveloper && (
+                        <button
+                          onClick={() => { setNewTopicSection(section); setShowNewTopicModal(true); }}
+                          className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 transition px-1"
+                          title="Add forum topic">
+                          + Add Topic
+                        </button>
+                      )}
                     </div>
-                  ))}
-                </div>
-              ))}
+                    {/* Forum rows */}
+                    {sectionForums.map(forum => {
+                      const forumThreads = threads.filter(t => t.forumId === forum.id);
+                      const latestThread = forumThreads[0] || null;
+                      const threadCount = forumThreads.length;
+                      const replyCount = forumThreads.reduce((sum: number, t: any) => sum + (t.replies || 0), 0);
+                      return (
+                        <div key={forum.id}
+                          onClick={() => setSelectedForum(forum)}
+                          className="flex items-stretch border-b border-zinc-800 hover:bg-zinc-900/50 cursor-pointer transition-colors group">
+                          {/* Left: forum name + description */}
+                          <div className="flex-1 min-w-0 px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono font-semibold text-zinc-100 group-hover:text-emerald-400 transition-colors">
+                                {forum.name}
+                              </span>
+                              {forum.isCustom && isDeveloper && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!confirm(`Delete forum "${forum.name}"?`)) return;
+                                    await deleteDoc(doc(db, 'forumTopics', forum.firestoreId));
+                                  }}
+                                  className="text-[9px] font-mono text-zinc-700 hover:text-red-400 transition">
+                                  del
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-[10px] font-mono text-zinc-600">{threadCount} threads</span>
+                              <span className="text-[10px] font-mono text-zinc-600">{replyCount} replies</span>
+                            </div>
+                          </div>
+                          {/* Right: latest thread */}
+                          <div className="hidden sm:flex flex-col justify-center px-4 py-3 min-w-0 w-64 border-l border-zinc-800/60">
+                            {latestThread ? (
+                              <>
+                                <p className="text-xs font-mono text-zinc-300 truncate leading-snug">
+                                  {latestThread.title}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <Avatar
+                                    src={authorAvatarCache[latestThread.authorUid] || latestThread.authorAvatar}
+                                    username={latestThread.author}
+                                    size={14}
+                                  />
+                                  <span className="text-[10px] font-mono text-emerald-500 truncate">{latestThread.author}</span>
+                                  <span className="text-[10px] font-mono text-zinc-600 flex-shrink-0">{latestThread.date}</span>
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-[10px] font-mono text-zinc-700">No threads yet</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -1453,13 +1674,19 @@ export default function AscendMaxx() {
                           {messages.map(m => (
                             <div key={m.id} className={`flex ${m.senderUid === currentUid ? 'justify-end' : 'justify-start'}`}>
                               <div className={`max-w-[70%] px-3 py-2 text-xs font-mono ${m.senderUid === currentUid ? 'bg-emerald-700 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
-                                {m.text}
+                                {renderWithStickers(m.text)}
                               </div>
                             </div>
                           ))}
                           <div ref={messagesEndRef} />
                         </div>
-                        <div className="px-3 py-2 border-t border-zinc-800 flex gap-2">
+                        <div className="px-3 py-2 border-t border-zinc-800 flex gap-1.5">
+                          <button
+                            onClick={() => { setStickerTarget('dm'); setShowStickerCatalog(true); }}
+                            className="text-zinc-500 hover:text-zinc-200 text-sm px-2 py-1.5 transition-colors flex-shrink-0"
+                            title="Stickers">
+                            🎭
+                          </button>
                           <input value={dmInput} onChange={e => setDmInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
                             className={`${inputCls} flex-1`} />
@@ -1492,6 +1719,58 @@ export default function AscendMaxx() {
                 </div>
               ) : (
                 <p className="text-sm text-zinc-400 leading-relaxed font-mono whitespace-pre-wrap">{aboutText}</p>
+              )}
+            </div>
+          )}
+
+          {/* ── STICKERS PAGE ─────────────────────────────────────────────── */}
+          {currentView === 'stickers' && (
+            <div>
+              <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+                <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Sticker Catalog</h2>
+                <div className="flex gap-2">
+                  {isLoggedIn && (
+                    <button onClick={() => setShowRequestSticker(true)} className={btnSecondary + ' text-[10px] py-1.5 px-3'}>
+                      Request Sticker
+                    </button>
+                  )}
+                  {isDeveloper && (
+                    <>
+                      <button onClick={() => setShowReviewQueue(true)}
+                        className={btnSecondary + ' text-[10px] py-1.5 px-3 relative'}>
+                        Review Queue
+                        {stickerRequests.filter(r => r.status === 'pending').length > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-emerald-500 text-black text-[9px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                            {stickerRequests.filter(r => r.status === 'pending').length}
+                          </span>
+                        )}
+                      </button>
+                      <button onClick={() => setShowAddSticker(true)} className={btnPrimary + ' text-[10px] py-1.5 px-3'}>
+                        + Add Sticker
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              {stickers.length === 0 ? (
+                <div className="text-center py-20 text-zinc-600 font-mono text-xs">
+                  No stickers yet.{isDeveloper ? ' Add the first one!' : ' Check back soon.'}
+                </div>
+              ) : (
+                <div className="p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                  {stickers.map(s => (
+                    <div key={s.id} className="flex flex-col items-center gap-1 p-2 border border-zinc-800 hover:border-zinc-600 transition-colors group">
+                      <img src={s.url} alt={s.name} className="w-16 h-16 object-contain" />
+                      <span className="text-[9px] font-mono text-zinc-500 truncate w-full text-center">{s.name}</span>
+                      {isDeveloper && (
+                        <button onClick={() => deleteDoc(doc(db, 'stickers', s.id))}
+                          className="text-[9px] font-mono text-zinc-700 hover:text-red-400 transition opacity-0 group-hover:opacity-100">
+                          remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
