@@ -239,6 +239,10 @@ export default function AscendMaxx() {
   const [replyText, setReplyText]             = useState('');
   const [postingReply, setPostingReply]       = useState(false);
   const [threadUserCache, setThreadUserCache] = useState<Record<string, any>>({});
+  // CHANGE: live avatar cache for thread-list rows, keyed by authorUid, so
+  // list previews also show the author's current avatar retroactively
+  // instead of the static snapshot stored on the thread at post time.
+  const [authorAvatarCache, setAuthorAvatarCache] = useState<Record<string, string>>({});
 
   const [pinnedIds, setPinnedIds]                   = useState<string[]>(['ann-1']);
   const [defaultAnnouncement, setDefaultAnnouncement] = useState<any>(null);
@@ -274,6 +278,7 @@ export default function AscendMaxx() {
   const [messages, setMessages]                 = useState<any[]>([]);
   const [dmInput, setDmInput]                   = useState('');
   const [dmUnread, setDmUnread]                 = useState(0);
+  const [dmListenerError, setDmListenerError]   = useState('');
   const [dmSearch, setDmSearch]                 = useState('');
   const [dmSearchResults, setDmSearchResults]   = useState<any[]>([]);
   const [searchingUsers, setSearchingUsers]     = useState(false);
@@ -363,6 +368,24 @@ export default function AscendMaxx() {
     });
   }, []);
 
+  // CHANGE: keep authorAvatarCache filled with live avatars for every
+  // author currently visible in the thread list.
+  useEffect(() => {
+    const uids = [...new Set(threads.map((t: any) => t.authorUid).filter(Boolean))]
+      .filter((uid: string) => !(uid in authorAvatarCache));
+    if (uids.length === 0) return;
+    (async () => {
+      const updates: Record<string, string> = {};
+      await Promise.all(uids.map(async (uid: string) => {
+        try {
+          const s = await getDoc(doc(db, 'users', uid));
+          updates[uid] = s.exists() ? (s.data().avatar || '') : '';
+        } catch { updates[uid] = ''; }
+      }));
+      setAuthorAvatarCache(prev => ({ ...prev, ...updates }));
+    })();
+  }, [threads, authorAvatarCache]);
+
   useEffect(() => {
     const unsub = onSnapshot(
       query(collection(db, 'users'), orderBy('createdAt', 'desc')),
@@ -375,11 +398,21 @@ export default function AscendMaxx() {
         );
       }
     );
+    // CHANGE: online = flag says online AND lastSeen is recent (within
+    // ~2 heartbeat intervals). A session that dies without writing
+    // online:false — killed tab, crashed browser, lost network before
+    // pagehide fires — ages out instead of counting as online forever.
+    const STALE_AFTER_MS = 45000;
     const presUnsub = onSnapshot(collection(db, 'presence'), (snap) => {
+      const now = Date.now();
       const map: Record<string, boolean> = {};
-      snap.docs.forEach(d => { map[d.id] = d.data().online; });
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const lastSeenMs = data.lastSeen?.toDate ? data.lastSeen.toDate().getTime() : 0;
+        map[d.id] = !!data.online && (now - lastSeenMs) < STALE_AFTER_MS;
+      });
       setPresenceMap(map);
-      setOnlineCount(snap.docs.filter(d => d.data().online).length);
+      setOnlineCount(Object.values(map).filter(Boolean).length);
     });
     return () => { unsub(); presUnsub(); };
   }, []);
@@ -416,11 +449,23 @@ export default function AscendMaxx() {
         }));
         setConversations(convos);
         setDmUnread(convos.filter(c => (c as any).lastSenderUid !== currentUid && !(c as any).readBy?.[currentUid]).length);
+        setDmListenerError('');
       },
       // CHANGE: surface listener errors (e.g. missing composite index, rule
       // denials) instead of failing silently and leaving the DM list empty.
+      // This query needs a composite index (participants array-contains +
+      // lastMessageAt orderBy) — see firestore.indexes.json. Without it this
+      // listener fails permanently for every user and conversations never
+      // appear automatically, which is why manually searching a username
+      // (startDM uses a plain where() with no orderBy, so it needs no index)
+      // looked like the only way to "unlock" a DM.
       (err) => {
         console.error('conversations listener error:', err);
+        setDmListenerError(
+          err?.code === 'failed-precondition'
+            ? 'Missing Firestore index for conversations — deploy firestore.indexes.json.'
+            : 'Could not load conversations: ' + (err?.message || err?.code || 'unknown error')
+        );
       }
     );
     return () => unsub();
@@ -455,7 +500,9 @@ export default function AscendMaxx() {
             : 'Just now',
         }));
         setThreadReplies(replies);
-        const uids = [...new Set(replies.map((r: any) => r.authorUid).filter(Boolean))];
+        // CHANGE: include the OP's authorUid, not just reply authors —
+        // otherwise the original post's live avatar/tag never resolve.
+        const uids = [...new Set([viewingThread.authorUid, ...replies.map((r: any) => r.authorUid)].filter(Boolean))];
         const cache: Record<string, any> = {};
         await Promise.all(uids.map(async (uid: string) => {
           try {
@@ -485,12 +532,31 @@ export default function AscendMaxx() {
     return () => clearTimeout(timeout);
   }, [dmSearch, currentUid]);
 
+  // CHANGE: presence heartbeat. beforeunload alone is unreliable (doesn't
+  // fire on mobile Safari tab-close/app-switch, crashes, lost network, etc.),
+  // so stale 'online: true' docs used to pile up until the online count
+  // just tracked total members. Now every active tab refreshes lastSeen on
+  // an interval, tabs mark themselves offline on visibilitychange/pagehide
+  // too, and — most importantly — "online" is computed from a recency
+  // window (see the presence onSnapshot below) rather than trusting a flag
+  // that can get stuck forever.
   useEffect(() => {
-    const handleUnload = () => {
-      if (currentUid) setDoc(doc(db, 'presence', currentUid), { online: false, lastSeen: serverTimestamp() }, { merge: true });
+    if (!currentUid) return;
+    const HEARTBEAT_MS = 20000;
+    const beat = () => setDoc(doc(db, 'presence', currentUid), { online: true, lastSeen: serverTimestamp() }, { merge: true }).catch(() => {});
+    beat();
+    const interval = setInterval(beat, HEARTBEAT_MS);
+    const markOffline = () => { setDoc(doc(db, 'presence', currentUid), { online: false, lastSeen: serverTimestamp() }, { merge: true }).catch(() => {}); };
+    const handleVisibility = () => { if (document.visibilityState === 'visible') beat(); else markOffline(); };
+    window.addEventListener('beforeunload', markOffline);
+    window.addEventListener('pagehide', markOffline);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', markOffline);
+      window.removeEventListener('pagehide', markOffline);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-    window.addEventListener('beforeunload', handleUnload);
-    return () => window.removeEventListener('beforeunload', handleUnload);
   }, [currentUid]);
 
   // CHANGE 3: Load which users current user has already repped
@@ -845,7 +911,7 @@ export default function AscendMaxx() {
         <div className="flex items-center gap-3 mt-2">
           <button onClick={(e) => { e.stopPropagation(); openProfile(thread.author); }}
             className="flex items-center gap-1.5 hover:opacity-80 transition">
-            <Avatar src={thread.authorAvatar} username={thread.author} size={18} />
+            <Avatar src={authorAvatarCache[thread.authorUid] || thread.authorAvatar} username={thread.author} size={18} />
             <span className="text-emerald-500 text-xs font-mono">{thread.author}</span>
           </button>
           <span className="text-zinc-600 text-xs font-mono">{thread.date}</span>
@@ -853,7 +919,7 @@ export default function AscendMaxx() {
         </div>
       </div>
     );
-  }, [pinnedIds, isDeveloper, openProfile]);
+  }, [pinnedIds, isDeveloper, openProfile, authorAvatarCache]);
 
   // ── ThreadView ────────────────────────────────────────────────────────────
   const ThreadView = useCallback(() => {
@@ -872,7 +938,11 @@ export default function AscendMaxx() {
         <div className="flex border-b border-zinc-800">
           <div className="w-28 sm:w-36 flex-shrink-0 border-r border-zinc-800 p-3 flex flex-col items-center text-center">
             <button onClick={() => openProfile(authorName)} className="hover:opacity-80 transition mb-2">
-              <Avatar src={authorAvatar} username={authorName} size={48} />
+              {/* CHANGE: prefer the live avatar from the author's current
+                  user doc (userData) over the static snapshot stored on the
+                  post at creation time, so avatar updates apply retroactively
+                  to old posts — same as the tag already does below. */}
+              <Avatar src={userData?.avatar || authorAvatar} username={authorName} size={48} />
             </button>
             <button onClick={() => openProfile(authorName)}
               className="text-emerald-400 text-xs font-mono font-bold hover:underline truncate w-full text-center mb-1">
@@ -1065,6 +1135,11 @@ export default function AscendMaxx() {
         </div>
       </div>
 
+      {dmListenerError && (
+        <div className="px-3 py-1.5 border-b border-red-900 bg-red-950/40 text-red-400 text-[9px] font-mono flex-shrink-0">
+          {dmListenerError}
+        </div>
+      )}
       {!activeConvo ? (
         <>
           <div className="px-3 py-2 border-b border-zinc-800 flex-shrink-0">
@@ -1140,7 +1215,7 @@ export default function AscendMaxx() {
         </>
       )}
     </div>
-  ), [activeConvo, dmSearch, searchingUsers, dmSearchResults, conversations, messages, dmInput, presenceMap, currentUid, startDM, sendDM]);
+  ), [activeConvo, dmSearch, searchingUsers, dmSearchResults, conversations, messages, dmInput, presenceMap, currentUid, startDM, sendDM, dmListenerError]);
 
   if (authLoading) return (
     <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
@@ -1180,6 +1255,20 @@ export default function AscendMaxx() {
                   {v}
                 </button>
               ))}
+              {/* CHANGE: full-page DMs tab, previously only reachable from the
+                  mobile bottom nav — desktop had no way to open the full-page
+                  DM view, only the compact island via the DM icon button. */}
+              {isLoggedIn && (
+                <button onClick={() => { setCurrentView('dms'); setViewingThread(null); setShowDmPanel(false); }}
+                  className={`relative px-3 py-1.5 transition-colors ${currentView === 'dms' ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  DMs
+                  {dmUnread > 0 && (
+                    <span className="absolute -top-0.5 right-0.5 bg-emerald-500 text-black text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                      {dmUnread}
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1314,7 +1403,13 @@ export default function AscendMaxx() {
               {!isLoggedIn ? (
                 <div className="text-center py-20 text-zinc-600 font-mono text-xs">Log in to use direct messages.</div>
               ) : (
-                <div className="flex h-[calc(100vh-7rem)]">
+                <div className="flex h-[calc(100vh-7rem)] flex-col">
+                  {dmListenerError && (
+                    <div className="px-3 py-2 border-b border-red-900 bg-red-950/40 text-red-400 text-[10px] font-mono">
+                      {dmListenerError}
+                    </div>
+                  )}
+                  <div className="flex flex-1 min-h-0">
                   <div className="w-44 sm:w-56 flex-shrink-0 border-r border-zinc-800 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                     <div className="p-2 border-b border-zinc-800">
                       <input value={dmSearch} onChange={e => setDmSearch(e.target.value)} placeholder="Search users..."
@@ -1372,6 +1467,7 @@ export default function AscendMaxx() {
                         </div>
                       </>
                     )}
+                  </div>
                   </div>
                 </div>
               )}
