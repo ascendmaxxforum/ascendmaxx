@@ -968,45 +968,67 @@ export default function AscendMaxx() {
   const myReaction = (targetId: string) =>
     reactionsMap[targetId]?.find(v => v.uid === currentUid)?.type || null;
 
+  // ── Monoline icons (thumbs up / down / plus) ──────────────────────────────
+  const ThumbUpIcon = ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M7 10.5v10" />
+      <path d="M7 10.5 11.2 3.6a1.6 1.6 0 0 1 2.85 1.3L13 10h5.2a2 2 0 0 1 1.94 2.48l-1.6 6.5A2 2 0 0 1 16.6 20.5H10a3 3 0 0 1-3-3v-7Z" />
+    </svg>
+  );
+  const ThumbDownIcon = ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M17 13.5v-10" />
+      <path d="M17 13.5 12.8 20.4a1.6 1.6 0 0 1-2.85-1.3L11 14H5.8a2 2 0 0 1-1.94-2.48l1.6-6.5A2 2 0 0 1 7.4 3.5H14a3 3 0 0 1 3 3v7Z" />
+    </svg>
+  );
+  const PlusIcon = ({ className = '' }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+
   // ── Reaction bar component ────────────────────────────────────────────────
+  // Compact, inline, monoline — sits beside the post itself (no separate
+  // bordered footer section). "+" opens the sticker-reaction picker; thumbs
+  // up/down sit beside it with counts.
   const ReactionBar = ({ targetId }: { targetId: string }) => {
     const counts = getReactionCounts(targetId);
     const my = myReaction(targetId);
-    const total = Object.values(counts).reduce((a, b) => a + b, 0);
     const topReactions = Object.entries(counts)
+      .filter(([type]) => type !== 'like' && type !== 'dislike')
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+      .slice(0, 3);
 
     return (
-      <div className="flex items-center gap-1.5 flex-wrap mt-2 px-4 py-2 border-t border-zinc-800/50">
-        {/* Like / Dislike */}
-        <button
-          onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, 'like'); }}
-          className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono border transition-colors ${my === 'like' ? 'border-emerald-600 text-emerald-400 bg-emerald-950/40' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>
-          👍 {counts['like'] || 0}
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, 'dislike'); }}
-          className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono border transition-colors ${my === 'dislike' ? 'border-red-700 text-red-400 bg-red-950/40' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>
-          👎 {counts['dislike'] || 0}
-        </button>
-        {/* Sticker reactions */}
-        {topReactions.filter(([type]) => type !== 'like' && type !== 'dislike').map(([type, count]) => (
-          <button key={type}
-            onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, type); }}
-            className={`flex items-center gap-1 px-1.5 py-0.5 border transition-colors ${my === type ? 'border-emerald-600 bg-emerald-950/30' : 'border-zinc-800 hover:border-zinc-600'}`}>
-            <img src={type} alt="reaction" className="w-5 h-5 object-contain" />
-            <span className="text-[10px] font-mono text-zinc-400">{count}</span>
-          </button>
-        ))}
-        {/* Add sticker reaction button */}
+      <div className="flex items-center gap-2.5">
         {isLoggedIn && (
           <button
             onClick={(e) => { e.stopPropagation(); setShowReactionPicker(targetId); }}
-            className="px-2 py-1 text-[10px] font-mono border border-zinc-800 text-zinc-600 hover:border-zinc-600 hover:text-zinc-400 transition-colors">
-            + Sticker
+            title="Add sticker reaction"
+            className="text-zinc-600 hover:text-zinc-300 transition-colors">
+            <PlusIcon className="w-3.5 h-3.5" />
           </button>
         )}
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, 'like'); }}
+          className={`flex items-center gap-1 text-[10px] font-mono transition-colors ${my === 'like' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
+          <ThumbUpIcon className="w-3.5 h-3.5" />
+          {counts['like'] || 0}
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, 'dislike'); }}
+          className={`flex items-center gap-1 text-[10px] font-mono transition-colors ${my === 'dislike' ? 'text-red-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
+          <ThumbDownIcon className="w-3.5 h-3.5" />
+          {counts['dislike'] || 0}
+        </button>
+        {topReactions.map(([type, count]) => (
+          <button key={type}
+            onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, type); }}
+            className={`flex items-center gap-1 transition-opacity ${my === type ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
+            <img src={type} alt="reaction" className="w-3.5 h-3.5 object-contain" />
+            <span className="text-[10px] font-mono text-zinc-400">{count}</span>
+          </button>
+        ))}
       </div>
     );
   };
@@ -1293,7 +1315,10 @@ export default function AscendMaxx() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/50 bg-zinc-900/30">
               <span className="text-[10px] font-mono text-zinc-500">{date}</span>
-              <span className="text-[10px] font-mono text-zinc-600">#{postNum}</span>
+              <div className="flex items-center gap-3">
+                <ReactionBar targetId={postNum === 1 ? viewingThread?.id || '' : threadReplies[postNum - 2]?.id || ''} />
+                <span className="text-[10px] font-mono text-zinc-600">#{postNum}</span>
+              </div>
             </div>
             <div className="px-4 py-4">
               <div className="text-sm text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">{renderWithStickers(text)}</div>
@@ -1305,7 +1330,6 @@ export default function AscendMaxx() {
                 </div>
               )}
             </div>
-            <ReactionBar targetId={postNum === 1 ? viewingThread?.id || '' : threadReplies[postNum - 2]?.id || ''} />
           </div>
         </div>
       );
