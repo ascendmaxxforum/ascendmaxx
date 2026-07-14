@@ -774,6 +774,36 @@ export default function AscendMaxx() {
   };
 
   // ── Profile ───────────────────────────────────────────────────────────────
+  // ── Shared image upload helper (file → base64 data URL) ──────────────────
+  const fileToDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = ev => resolve(ev.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    setLogoUrlDraft(dataUrl);
+  };
+
+  const handleStickerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    setNewStickerUrl(dataUrl);
+  };
+
+  const handleReqStickerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    setReqStickerUrl(dataUrl);
+  };
+
   // ── Sticker actions ───────────────────────────────────────────────────────
   const addSticker = async () => {
     setAddingStickerError('');
@@ -2036,8 +2066,19 @@ export default function AscendMaxx() {
           <div className="p-5 space-y-4">
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Image URL</label>
-              <input value={logoUrlDraft} onChange={e => setLogoUrlDraft(e.target.value)}
+              <input value={logoUrlDraft.startsWith('data:') ? '' : logoUrlDraft}
+                onChange={e => setLogoUrlDraft(e.target.value)}
                 placeholder="https://example.com/logo.png" className={inputCls} />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">or</span>
+              <label className={btnSecondary + ' cursor-pointer text-[10px] py-1.5 px-3'}>
+                Upload from Device
+                <input type="file" accept="image/*,image/gif" className="hidden" onChange={handleLogoFileUpload} />
+              </label>
+              {logoUrlDraft.startsWith('data:') && (
+                <span className="text-[10px] font-mono text-emerald-500">File loaded ✓</span>
+              )}
             </div>
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">
@@ -2111,7 +2152,18 @@ export default function AscendMaxx() {
             </div>
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Image URL</label>
-              <input value={newStickerUrl} onChange={e => setNewStickerUrl(e.target.value)} placeholder="https://..." className={inputCls} />
+              <input value={newStickerUrl.startsWith('data:') ? '' : newStickerUrl}
+                onChange={e => setNewStickerUrl(e.target.value)} placeholder="https://..." className={inputCls} />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">or</span>
+              <label className={btnSecondary + ' cursor-pointer text-[10px] py-1.5 px-3'}>
+                Upload from Device
+                <input type="file" accept="image/*,image/gif" className="hidden" onChange={handleStickerFileUpload} />
+              </label>
+              {newStickerUrl.startsWith('data:') && (
+                <span className="text-[10px] font-mono text-emerald-500">File loaded ✓</span>
+              )}
             </div>
             {newStickerUrl && (
               <div className="border border-zinc-800 p-3 flex items-center justify-center bg-black">
@@ -2141,7 +2193,18 @@ export default function AscendMaxx() {
             </div>
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Image URL</label>
-              <input value={reqStickerUrl} onChange={e => setReqStickerUrl(e.target.value)} placeholder="https://..." className={inputCls} />
+              <input value={reqStickerUrl.startsWith('data:') ? '' : reqStickerUrl}
+                onChange={e => setReqStickerUrl(e.target.value)} placeholder="https://..." className={inputCls} />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">or</span>
+              <label className={btnSecondary + ' cursor-pointer text-[10px] py-1.5 px-3'}>
+                Upload from Device
+                <input type="file" accept="image/*,image/gif" className="hidden" onChange={handleReqStickerFileUpload} />
+              </label>
+              {reqStickerUrl.startsWith('data:') && (
+                <span className="text-[10px] font-mono text-emerald-500">File loaded ✓</span>
+              )}
             </div>
             {reqStickerUrl && (
               <div className="border border-zinc-800 p-3 flex items-center justify-center bg-black">
