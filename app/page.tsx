@@ -719,7 +719,17 @@ export default function AscendMaxx() {
 
   const deleteThread = async (threadId: string) => {
     if (!confirm('Delete this thread?')) return;
-    try { await deleteDoc(doc(db, 'threads', threadId)); } catch { alert('Failed to delete.'); }
+    try {
+      // Find the thread to get the authorUid before deleting
+      const thread = threads.find(t => t.id === threadId);
+      await deleteDoc(doc(db, 'threads', threadId));
+      // Decrement the author's threadCount so sidebar stays accurate
+      if (thread?.authorUid) {
+        await updateDoc(doc(db, 'users', thread.authorUid), {
+          threadCount: increment(-1),
+        });
+      }
+    } catch { alert('Failed to delete.'); }
   };
 
   const togglePin = async (threadId: string) => {
@@ -1302,21 +1312,27 @@ export default function AscendMaxx() {
   const SidebarContent = useCallback(() => (
     <div>
       <div className="px-3 py-2 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-zinc-800">Forums</div>
-      {forumSections.map(section => (
-        <div key={section}>
-          <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-zinc-600 bg-zinc-900/50">{section}</div>
-          {allForums.filter(f => f.section === section).map(f => (
-            <div key={f.id}
-              onClick={() => { setSelectedForum(f); setCurrentView('forums'); setSidebarOpen(false); setViewingThread(null); }}
-              className={`px-4 py-2 text-sm cursor-pointer hover:bg-zinc-800 border-b border-zinc-800/50 transition-colors ${selectedForum?.id === f.id ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-300'}`}>
-              {f.name}
-            </div>
-          ))}
-        </div>
-      ))}
+      {forumSections.map(section => {
+        const sectionForums = [
+          ...allForums.filter(f => f.section === section),
+          ...customForums.filter(f => f.section === section),
+        ];
+        return (
+          <div key={section}>
+            <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-zinc-600 bg-zinc-900/50">{section}</div>
+            {sectionForums.map(f => (
+              <div key={f.id ?? f.firestoreId}
+                onClick={() => { setSelectedForum(f); setCurrentView('forums'); setSidebarOpen(false); setViewingThread(null); }}
+                className={`px-4 py-2 text-sm cursor-pointer hover:bg-zinc-800 border-b border-zinc-800/50 transition-colors ${selectedForum?.id === f.id ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-300'}`}>
+                {f.name}
+              </div>
+            ))}
+          </div>
+        );
+      })}
       <div className="lg:hidden border-t border-zinc-800 mt-2">{StatsPanel()}</div>
     </div>
-  ), [selectedForum, StatsPanel]);
+  ), [selectedForum, StatsPanel, customForums]);
 
   // ── DmPanel ───────────────────────────────────────────────────────────────
   const DmPanel = useCallback(() => (
@@ -1902,8 +1918,8 @@ export default function AscendMaxx() {
                   <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Rep</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-mono font-bold text-zinc-200">{profTotal}</div>
-                  <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Messages</div>
+                  <div className="text-lg font-mono font-bold text-zinc-200">{viewingProfile.replyCount || 0}</div>
+                  <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Replies</div>
                 </div>
               </div>
               {/* Rep+1 button — only shows when logged in and viewing someone else's profile */}
