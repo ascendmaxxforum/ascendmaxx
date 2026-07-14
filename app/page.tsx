@@ -300,6 +300,13 @@ export default function AscendMaxx() {
 
   const [showRateModal, setShowRateModal]     = useState(false);
 
+  // ── Site logo ─────────────────────────────────────────────────────────────
+  const [siteLogoUrl, setSiteLogoUrl]   = useState('');
+  const [siteLogoSize, setSiteLogoSize] = useState(32); // height in px
+  const [editingLogo, setEditingLogo]   = useState(false);
+  const [logoUrlDraft, setLogoUrlDraft] = useState('');
+  const [logoSizeDraft, setLogoSizeDraft] = useState(32);
+
   // ── Stickers ──────────────────────────────────────────────────────────────
   const [stickers, setStickers]                     = useState<any[]>([]);
   const [stickerRequests, setStickerRequests]       = useState<any[]>([]);
@@ -619,6 +626,17 @@ export default function AscendMaxx() {
         name: d.data().name,
         isCustom: true,
       })));
+    });
+    return () => unsub();
+  }, []);
+
+  // ── Site logo (from Firestore settings) ──────────────────────────────────
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'logo'), (snap) => {
+      if (snap.exists()) {
+        setSiteLogoUrl(snap.data().url || '');
+        setSiteLogoSize(snap.data().size || 32);
+      }
     });
     return () => unsub();
   }, []);
@@ -1183,7 +1201,7 @@ export default function AscendMaxx() {
                 onClick={() => { setStickerTarget('reply'); setShowStickerCatalog(true); }}
                 className={btnSecondary + ' px-3 py-2.5'}
                 title="Insert sticker">
-                🎭 Sticker
+                Sticker
               </button>
             </div>
           </div>
@@ -1359,7 +1377,7 @@ export default function AscendMaxx() {
               onClick={() => { setStickerTarget('dm'); setShowStickerCatalog(true); }}
               className="text-zinc-500 hover:text-zinc-200 text-sm px-2 py-1.5 transition-colors flex-shrink-0"
               title="Stickers">
-              🎭
+              
             </button>
             <input value={dmInput} onChange={e => setDmInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
@@ -1391,13 +1409,34 @@ export default function AscendMaxx() {
 
       <nav className="bg-zinc-950 border-b border-zinc-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-11 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-zinc-500 hover:text-zinc-200 font-mono text-sm">≡</button>
-            <span className="text-emerald-500 font-mono font-bold tracking-widest text-sm cursor-pointer"
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-zinc-500 hover:text-zinc-200 font-mono text-sm flex-shrink-0">≡</button>
+
+            {/* Logo — image if set, otherwise text fallback */}
+            <div
+              className="flex-shrink-0 cursor-pointer flex items-center"
               onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }}>
-              ASCENDMAXX
-            </span>
-            <div className="hidden sm:flex items-center gap-1 text-xs font-mono">
+              {siteLogoUrl ? (
+                <img
+                  src={siteLogoUrl}
+                  alt="Logo"
+                  style={{ height: siteLogoSize, width: 'auto' }}
+                  className="object-contain"
+                />
+              ) : (
+                <span className="text-emerald-500 font-mono font-bold tracking-widest text-sm">ASCENDMAXX</span>
+              )}
+            </div>
+            {isDeveloper && (
+              <button
+                onClick={() => { setLogoUrlDraft(siteLogoUrl); setLogoSizeDraft(siteLogoSize); setEditingLogo(true); }}
+                className="hidden sm:block text-[9px] font-mono text-zinc-700 hover:text-zinc-400 transition flex-shrink-0">
+                {siteLogoUrl ? 'edit logo' : 'add logo'}
+              </button>
+            )}
+
+            {/* Desktop nav tabs */}
+            <div className="hidden sm:flex items-center gap-0.5 text-xs font-mono overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               {(['Home','Forums','Members','About','Stickers'] as const).map(v => (
                 <button key={v}
                   onClick={() => {
@@ -1405,16 +1444,13 @@ export default function AscendMaxx() {
                     else setCurrentView(v.toLowerCase() as View);
                     setViewingThread(null);
                   }}
-                  className={`px-3 py-1.5 transition-colors ${currentView === v.toLowerCase() ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  className={`px-3 py-1.5 whitespace-nowrap transition-colors ${currentView === v.toLowerCase() ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
                   {v}
                 </button>
               ))}
-              {/* CHANGE: full-page DMs tab, previously only reachable from the
-                  mobile bottom nav — desktop had no way to open the full-page
-                  DM view, only the compact island via the DM icon button. */}
               {isLoggedIn && (
                 <button onClick={() => { setCurrentView('dms'); setViewingThread(null); setShowDmPanel(false); }}
-                  className={`relative px-3 py-1.5 transition-colors ${currentView === 'dms' ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  className={`relative px-3 py-1.5 whitespace-nowrap transition-colors ${currentView === 'dms' ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
                   DMs
                   {dmUnread > 0 && (
                     <span className="absolute -top-0.5 right-0.5 bg-emerald-500 text-black text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
@@ -1685,7 +1721,7 @@ export default function AscendMaxx() {
                             onClick={() => { setStickerTarget('dm'); setShowStickerCatalog(true); }}
                             className="text-zinc-500 hover:text-zinc-200 text-sm px-2 py-1.5 transition-colors flex-shrink-0"
                             title="Stickers">
-                            🎭
+                            
                           </button>
                           <input value={dmInput} onChange={e => setDmInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && sendDM()} placeholder="Message..."
@@ -1990,6 +2026,197 @@ export default function AscendMaxx() {
         </div>
       )}
 
+      {/* ── LOGO EDIT MODAL (dev only) ────────────────────────────────────── */}
+      {editingLogo && isDeveloper && (
+        <Modal onClose={() => setEditingLogo(false)} maxW="max-w-sm">
+          <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Site Logo</span>
+            <button onClick={() => setEditingLogo(false)} className="text-zinc-600 font-mono text-sm">x</button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Image URL</label>
+              <input value={logoUrlDraft} onChange={e => setLogoUrlDraft(e.target.value)}
+                placeholder="https://example.com/logo.png" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">
+                Height: {logoSizeDraft}px
+              </label>
+              <input type="range" min={16} max={80} value={logoSizeDraft}
+                onChange={e => setLogoSizeDraft(Number(e.target.value))}
+                className="w-full accent-emerald-500" />
+            </div>
+            {logoUrlDraft && (
+              <div className="border border-zinc-800 p-3 flex items-center justify-center bg-black">
+                <img src={logoUrlDraft} alt="preview" style={{ height: logoSizeDraft, width: 'auto' }} className="object-contain" />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => setEditingLogo(false)} className={btnSecondary}>Cancel</button>
+              {siteLogoUrl && (
+                <button onClick={async () => {
+                  await setDoc(doc(db, 'settings', 'logo'), { url: '', size: 32 });
+                  setEditingLogo(false);
+                }} className="border border-red-800 text-red-400 text-xs font-mono px-4 py-2.5 hover:bg-red-900/20 transition-colors">
+                  Remove
+                </button>
+              )}
+              <button onClick={async () => {
+                await setDoc(doc(db, 'settings', 'logo'), { url: logoUrlDraft, size: logoSizeDraft });
+                setEditingLogo(false);
+              }} className={btnPrimary}>Save</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── STICKER CATALOG PICKER ────────────────────────────────────────── */}
+      {showStickerCatalog && (
+        <Modal onClose={() => { setShowStickerCatalog(false); setStickerTarget(null); }} maxW="max-w-lg">
+          <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Pick a Sticker</span>
+            <button onClick={() => { setShowStickerCatalog(false); setStickerTarget(null); }} className="text-zinc-600 font-mono text-sm">x</button>
+          </div>
+          <div className="p-4">
+            {stickers.length === 0 ? (
+              <div className="text-center py-10 text-zinc-600 font-mono text-xs">No stickers available yet.</div>
+            ) : (
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                {stickers.map(s => (
+                  <button key={s.id} onClick={() => insertSticker(s.url)}
+                    className="flex flex-col items-center gap-1 p-2 border border-zinc-800 hover:border-emerald-600 transition-colors">
+                    <img src={s.url} alt={s.name} className="w-14 h-14 object-contain" />
+                    <span className="text-[9px] font-mono text-zinc-500 truncate w-full text-center">{s.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* ── ADD STICKER MODAL (dev only) ──────────────────────────────────── */}
+      {showAddSticker && isDeveloper && (
+        <Modal onClose={() => setShowAddSticker(false)} maxW="max-w-sm">
+          <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Add Sticker</span>
+            <button onClick={() => setShowAddSticker(false)} className="text-zinc-600 font-mono text-sm">x</button>
+          </div>
+          <div className="p-5 space-y-3">
+            {addingStickerError && <p className="text-red-400 text-xs font-mono border border-red-800 px-3 py-2">{addingStickerError}</p>}
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Name</label>
+              <input value={newStickerName} onChange={e => setNewStickerName(e.target.value)} placeholder="e.g. Pay Attention" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Image URL</label>
+              <input value={newStickerUrl} onChange={e => setNewStickerUrl(e.target.value)} placeholder="https://..." className={inputCls} />
+            </div>
+            {newStickerUrl && (
+              <div className="border border-zinc-800 p-3 flex items-center justify-center bg-black">
+                <img src={newStickerUrl} alt="preview" className="max-h-24 max-w-full object-contain" />
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowAddSticker(false)} className={btnSecondary}>Cancel</button>
+              <button onClick={addSticker} className={btnPrimary}>Add Sticker</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── REQUEST STICKER MODAL ─────────────────────────────────────────── */}
+      {showRequestSticker && isLoggedIn && (
+        <Modal onClose={() => setShowRequestSticker(false)} maxW="max-w-sm">
+          <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Request a Public Sticker</span>
+            <button onClick={() => setShowRequestSticker(false)} className="text-zinc-600 font-mono text-sm">x</button>
+          </div>
+          <div className="p-5 space-y-3">
+            <p className="text-[10px] font-mono text-zinc-500">Submit a sticker for the developer to review and add to the public catalog.</p>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Name</label>
+              <input value={reqStickerName} onChange={e => setReqStickerName(e.target.value)} placeholder="Sticker name" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Image URL</label>
+              <input value={reqStickerUrl} onChange={e => setReqStickerUrl(e.target.value)} placeholder="https://..." className={inputCls} />
+            </div>
+            {reqStickerUrl && (
+              <div className="border border-zinc-800 p-3 flex items-center justify-center bg-black">
+                <img src={reqStickerUrl} alt="preview" className="max-h-24 max-w-full object-contain" />
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowRequestSticker(false)} className={btnSecondary}>Cancel</button>
+              <button onClick={requestSticker} className={btnPrimary}>Submit Request</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── REVIEW QUEUE (dev only) ───────────────────────────────────────── */}
+      {showReviewQueue && isDeveloper && (
+        <Modal onClose={() => setShowReviewQueue(false)} maxW="max-w-lg">
+          <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">
+              Sticker Requests ({stickerRequests.filter(r => r.status === 'pending').length} pending)
+            </span>
+            <button onClick={() => setShowReviewQueue(false)} className="text-zinc-600 font-mono text-sm">x</button>
+          </div>
+          <div className="divide-y divide-zinc-800">
+            {stickerRequests.length === 0 ? (
+              <div className="text-center py-10 text-zinc-600 font-mono text-xs">No pending requests.</div>
+            ) : stickerRequests.map(r => (
+              <div key={r.id} className="flex items-center gap-4 p-4">
+                <img src={r.url} alt={r.name} className="w-14 h-14 object-contain border border-zinc-800 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-mono text-zinc-200 font-bold">{r.name}</div>
+                  <div className="text-[10px] font-mono text-zinc-500 mt-0.5">by {r.requestedBy}</div>
+                  <div className="text-[10px] font-mono text-zinc-700 truncate mt-0.5">{r.url}</div>
+                </div>
+                <div className="flex flex-col gap-1.5 flex-shrink-0">
+                  <button onClick={() => approveSticker(r)} className={btnPrimary + ' py-1.5 px-3 text-[10px]'}>Approve</button>
+                  <button onClick={() => rejectSticker(r.id)} className="border border-red-800 text-red-400 text-[10px] font-mono px-3 py-1.5 hover:bg-red-900/20 transition-colors">Reject</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {/* ── NEW FORUM TOPIC MODAL (dev only) ─────────────────────────────── */}
+      {showNewTopicModal && isDeveloper && (
+        <Modal onClose={() => setShowNewTopicModal(false)} maxW="max-w-sm">
+          <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Add Forum Topic</span>
+            <button onClick={() => setShowNewTopicModal(false)} className="text-zinc-600 font-mono text-sm">x</button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Section</label>
+              <select value={newTopicSection} onChange={e => setNewTopicSection(e.target.value)}
+                className={inputCls + ' cursor-pointer'}>
+                <option value="">Select section...</option>
+                {forumSections.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Topic Name</label>
+              <input value={newTopicName} onChange={e => setNewTopicName(e.target.value)}
+                placeholder="e.g. Chess, Fitness, Art..." className={inputCls} />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowNewTopicModal(false)} className={btnSecondary}>Cancel</button>
+              <button onClick={createForumTopic} disabled={addingTopic} className={btnPrimary}>
+                {addingTopic ? 'Creating...' : 'Create Topic'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* ── EDIT ANNOUNCEMENT ─────────────────────────────────────────────── */}
       {editingAnnouncement && (
         <Modal onClose={() => setEditingAnnouncement(false)} maxW="max-w-lg">
@@ -2267,22 +2494,34 @@ export default function AscendMaxx() {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex sm:hidden z-50">
-        {(['Home','Forums','DMs','Members'] as const).map((label) => {
-          const view = label.toLowerCase() as View;
-          return (
-            <button key={view}
-              onClick={() => { setCurrentView(view); if (view !== 'forums') setSelectedForum(null); setViewingThread(null); }}
-              className={`flex-1 py-2.5 text-[10px] font-mono uppercase tracking-wider transition-colors ${currentView === view ? 'text-emerald-400' : 'text-zinc-600'}`}>
+      {/* MOBILE BOTTOM NAV — horizontally scrollable so all tabs are reachable */}
+      <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 sm:hidden z-50">
+        <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as any}>
+          {[
+            { label: 'Home',     view: 'home' },
+            { label: 'Forums',   view: 'forums' },
+            { label: 'DMs',      view: 'dms' },
+            { label: 'Members',  view: 'members' },
+            { label: 'Stickers', view: 'stickers' },
+            { label: 'About',    view: 'about' },
+            { label: 'Theme',    view: '__theme__' },
+          ].map(({ label, view }) => (
+            <button
+              key={view}
+              onClick={() => {
+                if (view === '__theme__') { setShowThemePicker(v => !v); return; }
+                setCurrentView(view as View);
+                if (view !== 'forums') setSelectedForum(null);
+                setViewingThread(null);
+              }}
+              className={`flex-shrink-0 px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider transition-colors whitespace-nowrap ${
+                currentView === view ? 'text-emerald-400' : 'text-zinc-600'
+              }`}>
               {label}
               {view === 'dms' && dmUnread > 0 && <span className="ml-1 text-emerald-400">({dmUnread})</span>}
             </button>
-          );
-        })}
-        <button onClick={() => setShowThemePicker(v => !v)}
-          className="flex-1 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600">
-          Theme
-        </button>
+          ))}
+        </div>
       </div>
 
       <button onClick={() => setShowThemePicker(v => !v)}
