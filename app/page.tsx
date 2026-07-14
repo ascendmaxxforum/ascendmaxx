@@ -300,6 +300,18 @@ export default function AscendMaxx() {
 
   const [showRateModal, setShowRateModal]     = useState(false);
 
+  // ── Thread tags ───────────────────────────────────────────────────────────
+  const [newThreadTag, setNewThreadTag]         = useState('');
+  const [newThreadTagColor, setNewThreadTagColor] = useState('#6366f1');
+  const [showTagPicker, setShowTagPicker]       = useState(false);
+
+  // ── Reactions ─────────────────────────────────────────────────────────────
+  // reactions stored per thread/reply as subcollection: reactions/{targetId}/votes/{uid}
+  // { type: 'like'|'dislike'|string(stickerUrl), uid, createdAt }
+  const [reactionsMap, setReactionsMap]         = useState<Record<string, any[]>>({});
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null); // targetId
+  const [reactionPickerType, setReactionPickerType] = useState<'thread'|'reply'>('thread');
+
   // ── Site logo ─────────────────────────────────────────────────────────────
   const [siteLogoUrl, setSiteLogoUrl]   = useState('');
   const [siteLogoSize, setSiteLogoSize] = useState(32); // height in px
@@ -641,6 +653,33 @@ export default function AscendMaxx() {
     return () => unsub();
   }, []);
 
+  // ── Reactions — load for viewing thread ───────────────────────────────────
+  useEffect(() => {
+    if (!viewingThread) return;
+    const threadId = viewingThread.id;
+    // Load thread OP reactions
+    const unsubThread = onSnapshot(
+      collection(db, 'reactions', threadId, 'votes'),
+      (snap) => {
+        setReactionsMap(prev => ({ ...prev, [threadId]: snap.docs.map(d => ({ uid: d.id, ...d.data() })) }));
+      }
+    );
+    return () => { unsubThread(); };
+  }, [viewingThread]);
+
+  useEffect(() => {
+    if (!viewingThread || threadReplies.length === 0) return;
+    const unsubs = threadReplies.map(r => {
+      return onSnapshot(
+        collection(db, 'reactions', r.id, 'votes'),
+        (snap) => {
+          setReactionsMap(prev => ({ ...prev, [r.id]: snap.docs.map(d => ({ uid: d.id, ...d.data() })) }));
+        }
+      );
+    });
+    return () => unsubs.forEach(u => u());
+  }, [viewingThread, threadReplies]);
+
   // ── Auth ──────────────────────────────────────────────────────────────────
   const register = async () => {
     setRegisterError('');
@@ -700,11 +739,15 @@ export default function AscendMaxx() {
         forum: selectedForum?.name ?? 'Lounge', forumId: selectedForum?.id ?? 3,
         author: currentUser, authorUid: currentUid,
         authorAvatar: currentUserData?.avatar || '',
-        images: newThreadImages, replies: 0, views: 1, createdAt: serverTimestamp(),
+        images: newThreadImages, replies: 0, views: 1,
+        tag: newThreadTag.trim() || null,
+        tagColor: newThreadTag.trim() ? newThreadTagColor : null,
+        createdAt: serverTimestamp(),
       });
-      // CHANGE 4: increment threadCount correctly
       await updateDoc(doc(db, 'users', currentUid), { threadCount: increment(1) });
-      setShowNewThreadModal(false); setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]);
+      setShowNewThreadModal(false);
+      setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]);
+      setNewThreadTag(''); setNewThreadTagColor('#6366f1');
     } catch { alert('Failed to post. Try again.'); }
     setPostingThread(false);
   };
@@ -900,6 +943,74 @@ export default function AscendMaxx() {
     });
   };
 
+  // ── Reactions ─────────────────────────────────────────────────────────────
+  const toggleReaction = async (targetId: string, type: string) => {
+    if (!currentUid) { setShowLogin(true); return; }
+    const ref = doc(db, 'reactions', targetId, 'votes', currentUid);
+    const existing = reactionsMap[targetId]?.find(v => v.uid === currentUid);
+    if (existing?.type === type) {
+      // Same reaction — remove it
+      await deleteDoc(ref);
+    } else {
+      // New or different reaction — set it
+      await setDoc(ref, { type, uid: currentUid, createdAt: serverTimestamp() });
+    }
+    setShowReactionPicker(null);
+  };
+
+  const getReactionCounts = (targetId: string) => {
+    const votes = reactionsMap[targetId] || [];
+    const counts: Record<string, number> = {};
+    votes.forEach(v => { counts[v.type] = (counts[v.type] || 0) + 1; });
+    return counts;
+  };
+
+  const myReaction = (targetId: string) =>
+    reactionsMap[targetId]?.find(v => v.uid === currentUid)?.type || null;
+
+  // ── Reaction bar component ────────────────────────────────────────────────
+  const ReactionBar = ({ targetId }: { targetId: string }) => {
+    const counts = getReactionCounts(targetId);
+    const my = myReaction(targetId);
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const topReactions = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap mt-2 px-4 py-2 border-t border-zinc-800/50">
+        {/* Like / Dislike */}
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, 'like'); }}
+          className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono border transition-colors ${my === 'like' ? 'border-emerald-600 text-emerald-400 bg-emerald-950/40' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>
+          👍 {counts['like'] || 0}
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, 'dislike'); }}
+          className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono border transition-colors ${my === 'dislike' ? 'border-red-700 text-red-400 bg-red-950/40' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>
+          👎 {counts['dislike'] || 0}
+        </button>
+        {/* Sticker reactions */}
+        {topReactions.filter(([type]) => type !== 'like' && type !== 'dislike').map(([type, count]) => (
+          <button key={type}
+            onClick={(e) => { e.stopPropagation(); toggleReaction(targetId, type); }}
+            className={`flex items-center gap-1 px-1.5 py-0.5 border transition-colors ${my === type ? 'border-emerald-600 bg-emerald-950/30' : 'border-zinc-800 hover:border-zinc-600'}`}>
+            <img src={type} alt="reaction" className="w-5 h-5 object-contain" />
+            <span className="text-[10px] font-mono text-zinc-400">{count}</span>
+          </button>
+        ))}
+        {/* Add sticker reaction button */}
+        {isLoggedIn && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowReactionPicker(targetId); }}
+            className="px-2 py-1 text-[10px] font-mono border border-zinc-800 text-zinc-600 hover:border-zinc-600 hover:text-zinc-400 transition-colors">
+            + Sticker
+          </button>
+        )}
+      </div>
+    );
+  };
+
   const openProfile = useCallback(async (username: string) => {
     try {
       const unameSnap = await getDoc(doc(db, 'usernames', username.toLowerCase()));
@@ -1070,7 +1181,7 @@ export default function AscendMaxx() {
   const pinnedThreads  = threads.filter(t => pinnedIds.includes(t.id));
 
   // ── ThreadCard ────────────────────────────────────────────────────────────
-  const ThreadCard = useCallback(({ thread, isAnnouncement = false }: { thread: any; isAnnouncement?: boolean }) => {
+  const ThreadCard = useCallback(({ thread, isAnnouncement = false, largePfp = false }: { thread: any; isAnnouncement?: boolean; largePfp?: boolean }) => {
     const isPinned = pinnedIds.includes(thread.id) || isAnnouncement;
     return (
       <div
@@ -1081,38 +1192,58 @@ export default function AscendMaxx() {
         {isAnnouncement && <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-500 mb-1 block">Pinned</span>}
         {!isAnnouncement && isPinned && <span className="text-[10px] font-mono uppercase tracking-widest text-yellow-500 mb-1 block">Pinned</span>}
         {!isAnnouncement && !isPinned && thread.forum && <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">{thread.forum}</span>}
-        <div className="flex justify-between items-start gap-3">
-          <h3 className={`font-semibold leading-snug text-sm sm:text-base ${isAnnouncement ? 'text-emerald-400' : isPinned ? 'text-yellow-400' : 'text-zinc-100'}`}>
-            {thread.title}
-          </h3>
-          <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
-            {isDeveloper && !isAnnouncement && (
-              <button onClick={() => togglePin(thread.id)}
-                className={`text-[10px] font-mono ${isPinned ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
-                {isPinned ? 'unpin' : 'pin'}
+        <div className="flex gap-3 items-start">
+          {/* Avatar — large on forums page */}
+          {largePfp && (
+            <button onClick={(e) => { e.stopPropagation(); openProfile(thread.author); }} className="flex-shrink-0 mt-0.5">
+              <Avatar src={authorAvatarCache[thread.authorUid] || thread.authorAvatar} username={thread.author} size={48} />
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start gap-2 flex-wrap">
+              {/* Tag badge */}
+              {thread.tag && (
+                <span
+                  className="inline-block px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider flex-shrink-0 text-white"
+                  style={{ backgroundColor: thread.tagColor || '#6366f1' }}>
+                  {thread.tag}
+                </span>
+              )}
+              <div className="flex justify-between items-start gap-3 flex-1 min-w-0">
+                <h3 className={`font-semibold leading-snug text-sm sm:text-base ${isAnnouncement ? 'text-emerald-400' : isPinned ? 'text-yellow-400' : 'text-zinc-100'}`}>
+                  {thread.title}
+                </h3>
+                <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                  {isDeveloper && !isAnnouncement && (
+                    <button onClick={() => togglePin(thread.id)}
+                      className={`text-[10px] font-mono ${isPinned ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
+                      {isPinned ? 'unpin' : 'pin'}
+                    </button>
+                  )}
+                  {!isAnnouncement && isDeveloper && (
+                    <button onClick={() => deleteThread(thread.id)} className="text-zinc-600 hover:text-red-400 text-xs font-mono">del</button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className="text-zinc-500 text-xs leading-relaxed line-clamp-2 mt-1">{thread.description}</p>
+            {thread.images?.length > 0 && (
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {thread.images.map((img: string, i: number) => (
+                  <img key={i} src={img} alt="" className="h-12 w-12 object-cover border border-zinc-700" />
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-3 mt-2">
+              <button onClick={(e) => { e.stopPropagation(); openProfile(thread.author); }}
+                className="flex items-center gap-1.5 hover:opacity-80 transition">
+                {!largePfp && <Avatar src={authorAvatarCache[thread.authorUid] || thread.authorAvatar} username={thread.author} size={18} />}
+                <span className="text-emerald-500 text-xs font-mono">{thread.author}</span>
               </button>
-            )}
-            {!isAnnouncement && isDeveloper && (
-              <button onClick={() => deleteThread(thread.id)} className="text-zinc-600 hover:text-red-400 text-xs font-mono">del</button>
-            )}
+              <span className="text-zinc-600 text-xs font-mono">{thread.date}</span>
+              {!isAnnouncement && <span className="text-zinc-600 text-xs font-mono">{thread.replies} replies</span>}
+            </div>
           </div>
-        </div>
-        <p className="text-zinc-500 text-xs leading-relaxed line-clamp-2 mt-1">{thread.description}</p>
-        {thread.images?.length > 0 && (
-          <div className="flex gap-2 mt-2 flex-wrap">
-            {thread.images.map((img: string, i: number) => (
-              <img key={i} src={img} alt="" className="h-12 w-12 object-cover border border-zinc-700" />
-            ))}
-          </div>
-        )}
-        <div className="flex items-center gap-3 mt-2">
-          <button onClick={(e) => { e.stopPropagation(); openProfile(thread.author); }}
-            className="flex items-center gap-1.5 hover:opacity-80 transition">
-            <Avatar src={authorAvatarCache[thread.authorUid] || thread.authorAvatar} username={thread.author} size={18} />
-            <span className="text-emerald-500 text-xs font-mono">{thread.author}</span>
-          </button>
-          <span className="text-zinc-600 text-xs font-mono">{thread.date}</span>
-          {!isAnnouncement && <span className="text-zinc-600 text-xs font-mono">{thread.replies} replies</span>}
         </div>
       </div>
     );
@@ -1174,6 +1305,7 @@ export default function AscendMaxx() {
                 </div>
               )}
             </div>
+            <ReactionBar targetId={postNum === 1 ? viewingThread?.id || '' : threadReplies[postNum - 2]?.id || ''} />
           </div>
         </div>
       );
@@ -1252,7 +1384,7 @@ export default function AscendMaxx() {
         )}
       </div>
     );
-  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget]);
+  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget, ReactionBar, reactionsMap]);
 
   // ── StatsPanel ────────────────────────────────────────────────────────────
   const StatsPanel = useCallback(() => {
@@ -1684,7 +1816,7 @@ export default function AscendMaxx() {
                 ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
                 : visibleThreads.length === 0
                   ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">No threads yet.{isLoggedIn && (selectedForum.id !== 2 || isDeveloper) ? ' Start one.' : ''}</div>
-                  : visibleThreads.map(t => <ThreadCard key={t.id} thread={t} />)
+                  : visibleThreads.map(t => <ThreadCard key={t.id} thread={t} largePfp />)
               }
             </div>
           )}
@@ -2128,6 +2260,36 @@ export default function AscendMaxx() {
         </Modal>
       )}
 
+      {/* ── STICKER REACTION PICKER ──────────────────────────────────────── */}
+      {showReactionPicker && (
+        <Modal onClose={() => setShowReactionPicker(null)} maxW="max-w-lg">
+          <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">React with a Sticker</span>
+            <button onClick={() => setShowReactionPicker(null)} className="text-zinc-600 font-mono text-sm">x</button>
+          </div>
+          <div className="p-4">
+            {stickers.length === 0 ? (
+              <div className="text-center py-10 text-zinc-600 font-mono text-xs">No stickers in catalog yet.</div>
+            ) : (
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                {stickers.map(s => (
+                  <button key={s.id}
+                    onClick={() => toggleReaction(showReactionPicker, s.url)}
+                    className={`flex flex-col items-center gap-1 p-2 border transition-colors ${
+                      myReaction(showReactionPicker) === s.url
+                        ? 'border-emerald-600 bg-emerald-950/30'
+                        : 'border-zinc-800 hover:border-emerald-600'
+                    }`}>
+                    <img src={s.url} alt={s.name} className="w-14 h-14 object-contain" />
+                    <span className="text-[9px] font-mono text-zinc-500 truncate w-full text-center">{s.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
       {/* ── STICKER CATALOG PICKER ────────────────────────────────────────── */}
       {showStickerCatalog && (
         <Modal onClose={() => { setShowStickerCatalog(false); setStickerTarget(null); }} maxW="max-w-lg">
@@ -2429,6 +2591,40 @@ export default function AscendMaxx() {
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Title *</label>
               <input value={newThreadTitle} onChange={e => setNewThreadTitle(e.target.value)} placeholder="Enter a clear title..." className={inputCls} />
+            </div>
+            {/* Tag */}
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">
+                Tag <span className="text-zinc-700 normal-case tracking-normal">(optional — shown before title)</span>
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  value={newThreadTag}
+                  onChange={e => setNewThreadTag(e.target.value.slice(0, 20))}
+                  placeholder="e.g. Discussion, Question, Guide..."
+                  className={inputCls + ' flex-1'}
+                  maxLength={20}
+                />
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <label className="text-[10px] font-mono text-zinc-500">Color:</label>
+                  <input
+                    type="color"
+                    value={newThreadTagColor}
+                    onChange={e => setNewThreadTagColor(e.target.value)}
+                    className="w-8 h-8 cursor-pointer border border-zinc-700 bg-transparent p-0.5"
+                  />
+                </div>
+              </div>
+              {newThreadTag.trim() && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-zinc-600">Preview:</span>
+                  <span
+                    className="inline-block px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-white"
+                    style={{ backgroundColor: newThreadTagColor }}>
+                    {newThreadTag}
+                  </span>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Body</label>
