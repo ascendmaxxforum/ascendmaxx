@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, memo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { auth, db } from '../lib/firebase';
 import {
   createUserWithEmailAndPassword,
