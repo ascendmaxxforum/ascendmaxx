@@ -364,6 +364,21 @@ export default function AscendMaxx() {
     description: defaultAnnouncement?.description ?? 'Welcome to AscendMaxx. Please read the community rules before posting. Be respectful, stay on topic, and help each other ascend. Toxic behaviour, doxxing, or harassment will result in an immediate ban.',
     author: DEVELOPER_USERNAME, date: 'June 9, 2026', pinned: true, images: [] as string[], authorAvatar: '',
   };
+  // Announcement lives in settings/announcement rather than the `threads`
+  // collection, so it needs its own soft-delete flag instead of deleteThread.
+  const isAnnouncementDeleted = !!defaultAnnouncement?.hidden;
+
+  const deleteAnnouncement = async () => {
+    if (!confirm('Delete this pinned announcement?')) return;
+    try {
+      await setDoc(doc(db, 'settings', 'announcement'), {
+        title: siteAnnouncement.title,
+        description: siteAnnouncement.description,
+        hidden: true,
+      });
+      setViewingThread(null);
+    } catch { alert('Failed to delete.'); }
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -1367,6 +1382,12 @@ export default function AscendMaxx() {
                   Edit
                 </button>
               )}
+              {isDeveloper && isAnn && (
+                <button onClick={deleteAnnouncement}
+                  className="text-[10px] font-mono text-zinc-600 hover:text-red-400 uppercase tracking-widest">
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1715,16 +1736,22 @@ export default function AscendMaxx() {
               <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                 <h1 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Latest Posts</h1>
                 <div className="flex items-center gap-2">
-                  {isDeveloper && (
+                  {isDeveloper && !isAnnouncementDeleted && (
                     <button onClick={() => { setAnnDraft({ title: siteAnnouncement.title, description: siteAnnouncement.description }); setEditingAnnouncement(true); }}
                       className={btnSecondary + ' text-[10px] py-1.5 px-3'}>
                       Edit Announcement
                     </button>
                   )}
+                  {isDeveloper && !isAnnouncementDeleted && (
+                    <button onClick={deleteAnnouncement}
+                      className="text-zinc-600 hover:text-red-400 text-xs font-mono">
+                      del
+                    </button>
+                  )}
                   {isLoggedIn && <button onClick={() => setShowNewThreadModal(true)} className={btnPrimary}>+ New Thread</button>}
                 </div>
               </div>
-              <ThreadCard thread={siteAnnouncement} isAnnouncement />
+              {!isAnnouncementDeleted && <ThreadCard thread={siteAnnouncement} isAnnouncement />}
               {pinnedThreads.map(t => <ThreadCard key={t.id} thread={t} />)}
               {threadsLoading ? (
                 <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
