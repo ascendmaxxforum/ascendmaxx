@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { auth, db } from '../lib/firebase';
 import {
   createUserWithEmailAndPassword,
@@ -45,51 +45,49 @@ const THREADMAXXER_COLORS = [
   { name: 'White',   value: '#f4f4f5' },
 ];
 
-// ── Simple two-tier rank: GREY by default, BLUE once a member has 10+
-// threads+replies combined. No more GREY+/GREY++/GREY+++/THREADMAXXER tiers.
+// ── CHANGE 1: All rank labels now UPPERCASE, fixed label names ───────────────
 function getRank(total: number): { label: string; isThreadmaxxer: boolean } {
-  if (total >= 10) return { label: 'BLUE', isThreadmaxxer: false };
-  return { label: 'GREY', isThreadmaxxer: false };
+  if (total >= 200) return { label: 'THREADMAXXER', isThreadmaxxer: true };
+  if (total >= 150) return { label: 'GREY',         isThreadmaxxer: false };
+  if (total >= 100) return { label: 'GREY+',        isThreadmaxxer: false };
+  if (total >= 50)  return { label: 'GREY++',       isThreadmaxxer: false };
+  if (total >= 20)  return { label: 'GREY+++',      isThreadmaxxer: false };
+  return               { label: 'GREY+++',           isThreadmaxxer: false };
 }
 
-// ── RankTag: default GREY/BLUE background by rank, still overridable by
-// admin-assigned custom tag (tagLabel/bgColor/textColor) or the ADMIN default.
+// ── CHANGE 2: RankTag now also handles the ADMIN default for developer ───────
+// tagLabel from Firestore takes priority, then rank label
 function RankTag({ total, color, bgColor, textColor, tagLabel, username }: {
   total: number; color?: string; bgColor?: string; textColor?: string; tagLabel?: string; username?: string;
 }) {
-  const { label } = getRank(total);
+  const { label, isThreadmaxxer } = getRank(total);
 
   // Developer account always defaults to ADMIN if no custom tagLabel set
   const isDev = username === DEVELOPER_USERNAME;
   const displayLabel = tagLabel || (isDev ? 'ADMIN' : label);
 
-  // Dev / custom-tagged members get special styling
-  const isCustom = !!(tagLabel || bgColor || textColor) || isDev;
+  // Dev gets special styling if no custom colours set
+  const isCustomOrThreadmaxxer = !!(tagLabel || bgColor || textColor) || isThreadmaxxer || isDev;
 
   const defaultDevBg   = '#ef4444'; // red for admin
   const defaultDevText = '#ffffff';
-  const blueBg  = '#3b82f6';
-  const blueText = '#0a0a0a';
-  const greyBg  = '#3f3f46';
-  const greyText = '#d4d4d8';
 
-  if (isCustom) {
+  if (isCustomOrThreadmaxxer) {
     return (
       <span
         className="inline-block px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest rounded-sm"
         style={{
-          backgroundColor: bgColor || (isDev && !tagLabel ? defaultDevBg : color || blueBg),
+          backgroundColor: bgColor || (isDev && !tagLabel ? defaultDevBg : color || '#10b981'),
           color: textColor || (isDev && !tagLabel ? defaultDevText : '#000'),
         }}>
         {displayLabel}
       </span>
     );
   }
-  const isBlue = label === 'BLUE';
   return (
     <span
       className="inline-block px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest rounded-sm"
-      style={{ backgroundColor: isBlue ? blueBg : greyBg, color: isBlue ? blueText : greyText }}>
+      style={{ backgroundColor: '#3f3f46', color: '#d4d4d8' }}>
       {displayLabel}
     </span>
   );
@@ -207,11 +205,6 @@ export default function AscendMaxx() {
   const [selectedForum, setSelectedForum] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen]     = useState(false);
 
-  // ── Site-wide UI theme (admin-selectable, applies to every visitor) ────────
-  type SiteTheme = 'current' | 'looksmax-dark';
-  const [siteTheme, setSiteTheme]         = useState<SiteTheme>('current');
-  const [showThemeMenu, setShowThemeMenu] = useState(false);
-
   const [aboutText, setAboutText]   = useState('AscendMaxx is a self-improvement community focused on looksmaxxing, cognitive enhancement, and total life ascension.');
   const [editingAbout, setEditingAbout] = useState(false);
   const [aboutDraft, setAboutDraft] = useState('');
@@ -260,6 +253,7 @@ export default function AscendMaxx() {
   const [showEditProfile, setShowEditProfile]   = useState(false);
   const [profileBio, setProfileBio]             = useState('');
   const [profileAvatar, setProfileAvatar]       = useState('');
+  const [profileTagColor, setProfileTagColor]   = useState('');
   const [savingProfile, setSavingProfile]       = useState(false);
   const [followingList, setFollowingList]       = useState<string[]>([]);
   const [profileFollowers, setProfileFollowers] = useState<any[]>([]);
@@ -363,20 +357,6 @@ export default function AscendMaxx() {
     });
     return () => unsub();
   }, []);
-
-  // ── Site theme (realtime, so a switch by the admin applies to everyone) ───
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'settings', 'theme'), (snap) => {
-      if (snap.exists() && snap.data()?.theme) setSiteTheme(snap.data().theme as SiteTheme);
-    });
-    return () => unsub();
-  }, []);
-
-  const changeSiteTheme = async (t: SiteTheme) => {
-    setSiteTheme(t);
-    setShowThemeMenu(false);
-    try { await setDoc(doc(db, 'settings', 'theme'), { theme: t }); } catch { alert('Failed to save theme.'); }
-  };
 
   const siteAnnouncement = {
     id: 'ann-1', forum: 'Announcements', forumId: 2,
@@ -1112,8 +1092,10 @@ export default function AscendMaxx() {
     setSavingProfile(true);
     try {
       const updates: any = { bio: profileBio, avatar: profileAvatar };
+      const total = (currentUserData?.threadCount || 0) + (currentUserData?.replyCount || 0);
+      if (getRank(total).isThreadmaxxer) updates.tagColor = profileTagColor;
       await updateDoc(doc(db, 'users', currentUid), updates);
-      setCurrentUserData((prev: any) => ({ ...prev, bio: profileBio, avatar: profileAvatar }));
+      setCurrentUserData((prev: any) => ({ ...prev, bio: profileBio, avatar: profileAvatar, tagColor: profileTagColor }));
       setShowEditProfile(false);
     } catch { alert('Failed to save profile.'); }
     setSavingProfile(false);
@@ -1630,362 +1612,6 @@ export default function AscendMaxx() {
     </div>
   ), [activeConvo, dmSearch, searchingUsers, dmSearchResults, conversations, messages, dmInput, presenceMap, currentUid, startDM, sendDM, dmListenerError, renderWithStickers]);
 
-  // ── Looksmax Dark theme (looksmax.org-style layout, site's black/green palette) ──
-  const LK = {
-    page: '#0a0a0a', nav: '#000000', card: '#111113',
-    border: '#27272a', text: '#e4e4e7', muted: '#71717a', link: '#34d399', accent: '#10b981',
-  };
-
-  const LooksmaxDarkTheme = () => {
-    const LKPostRow = ({ userData, authorName, authorAvatar, authorUid, date, text, images, postNum }: any) => {
-      const total = (userData?.threadCount || 0) + (userData?.replyCount || 0);
-      const repCount = userData?.rep || 0;
-      return (
-        <div className="flex border-b" style={{ borderColor: LK.border }}>
-          <div className="w-32 sm:w-40 flex-shrink-0 border-r p-3 flex flex-col items-center text-center" style={{ borderColor: LK.border, backgroundColor: '#0d0d0f' }}>
-            <button onClick={() => openProfile(authorName)} className="hover:opacity-80 transition mb-1.5">
-              <Avatar src={userData?.avatar || authorAvatar} username={authorName} size={56} />
-            </button>
-            <button onClick={() => openProfile(authorName)}
-              className="text-xs font-mono font-bold hover:underline truncate w-full text-center mb-1" style={{ color: LK.link }}>
-              {authorName}
-            </button>
-            <RankTag total={total} color={userData?.tagColor} bgColor={userData?.tagBgColor} textColor={userData?.tagTextColor} tagLabel={userData?.tagLabel} username={authorName} />
-            <div className="mt-1.5 text-lg font-mono font-bold" style={{ color: LK.accent }}>{repCount}</div>
-            <div className="w-full mt-1.5 border-t pt-1.5 space-y-0.5" style={{ borderColor: LK.border }}>
-              <div className="flex justify-between text-[10px] font-mono" style={{ color: LK.muted }}>
-                <span>Joined:</span><span style={{ color: LK.text }}>{userData?.joinedDate || '—'}</span>
-              </div>
-              <div className="flex justify-between text-[10px] font-mono" style={{ color: LK.muted }}>
-                <span>Posts:</span><span style={{ color: LK.text }}>{total}</span>
-              </div>
-              <div className="flex justify-between text-[10px] font-mono" style={{ color: LK.muted }}>
-                <span>Reputation:</span><span style={{ color: LK.text }}>{repCount}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 min-w-0" style={{ backgroundColor: LK.card }}>
-            <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: LK.border }}>
-              <span className="text-[11px] font-mono" style={{ color: LK.muted }}>{date}</span>
-              <div className="flex items-center gap-3">
-                <ReactionBar targetId={postNum === 1 ? viewingThread?.id || '' : threadReplies[postNum - 2]?.id || ''} />
-                <span className="text-[11px] font-mono" style={{ color: LK.muted }}>#{postNum}</span>
-              </div>
-            </div>
-            <div className="px-4 py-4">
-              <div className="text-sm font-mono leading-relaxed whitespace-pre-wrap" style={{ color: LK.text }}>{renderWithStickers(text)}</div>
-              {images && images.length > 0 && (
-                <div className="flex gap-3 mt-4 flex-wrap">
-                  {images.map((img: string, i: number) => (
-                    <img key={i} src={img} alt="" className="max-h-72 max-w-full object-contain border" style={{ borderColor: LK.border }} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    const LKForumRow = ({ forum }: { forum: any }) => {
-      const forumThreads = threads.filter((t: any) => t.forumId === forum.id);
-      const latestThread = forumThreads[0] || null;
-      const threadCount = forumThreads.length;
-      const replyCount = forumThreads.reduce((s: number, t: any) => s + (t.replies || 0), 0);
-      return (
-        <div onClick={() => { setSelectedForum(forum); setCurrentView('forums'); setViewingThread(null); }}
-          className="flex items-center gap-3 px-4 py-3 border-b hover:bg-[#151517] cursor-pointer transition-colors"
-          style={{ borderColor: LK.border, backgroundColor: LK.card }}>
-          <div className="w-9 h-9 flex-shrink-0 rounded-sm flex items-center justify-center font-mono font-bold text-xs border" style={{ borderColor: LK.accent, color: LK.accent }}>
-            {forum.name.slice(0, 1).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-mono font-semibold hover:underline" style={{ color: LK.link }}>{forum.name}</div>
-          </div>
-          <div className="hidden sm:block text-[11px] font-mono text-center w-16 flex-shrink-0" style={{ color: LK.muted }}>
-            <div className="font-semibold text-sm" style={{ color: LK.text }}>{threadCount}</div>
-            Threads
-          </div>
-          <div className="hidden sm:block text-[11px] font-mono text-center w-16 flex-shrink-0" style={{ color: LK.muted }}>
-            <div className="font-semibold text-sm" style={{ color: LK.text }}>{replyCount}</div>
-            Messages
-          </div>
-          <div className="hidden md:flex items-center gap-2 w-56 flex-shrink-0 text-[11px] font-mono min-w-0">
-            {latestThread ? (
-              <>
-                <Avatar src={authorAvatarCache[latestThread.authorUid] || latestThread.authorAvatar} username={latestThread.author} size={26} />
-                <div className="min-w-0">
-                  <div className="truncate" style={{ color: LK.text }}>{latestThread.title}</div>
-                  <div style={{ color: LK.muted }}>{latestThread.date} · <span style={{ color: LK.link }}>{latestThread.author}</span></div>
-                </div>
-              </>
-            ) : <span style={{ color: LK.muted }}>No threads yet</span>}
-          </div>
-        </div>
-      );
-    };
-
-    const LKThreadRow = ({ t }: { t: any }) => (
-      <div onClick={() => setViewingThread(t)}
-        className="flex items-center gap-3 px-4 py-3 border-b hover:bg-[#151517] cursor-pointer transition-colors"
-        style={{ borderColor: LK.border, backgroundColor: LK.card }}>
-        <Avatar src={authorAvatarCache[t.authorUid] || t.authorAvatar} username={t.author} size={32} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {t.tag && (
-              <span className="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wide text-black flex-shrink-0"
-                style={{ backgroundColor: t.tagColor || LK.accent }}>{t.tag}</span>
-            )}
-            <span className="text-sm font-mono font-semibold hover:underline truncate" style={{ color: LK.link }}>{t.title}</span>
-          </div>
-          <div className="text-[11px] font-mono mt-0.5" style={{ color: LK.muted }}>
-            {t.author} · {t.date}
-          </div>
-        </div>
-        <div className="hidden sm:block text-center text-[11px] font-mono w-14 flex-shrink-0" style={{ color: LK.muted }}>
-          <div className="font-semibold text-sm" style={{ color: LK.text }}>{t.replies || 0}</div>
-          Replies
-        </div>
-      </div>
-    );
-
-    const LKSidebarCard = ({ title, children }: { title: string; children: any }) => (
-      <div className="mb-4 border" style={{ borderColor: LK.border, backgroundColor: LK.card }}>
-        <div className="px-3 py-2 text-xs font-mono font-bold uppercase tracking-widest border-b-2" style={{ color: LK.accent, borderColor: LK.accent, backgroundColor: LK.nav }}>{title}</div>
-        <div className="p-3">{children}</div>
-      </div>
-    );
-
-    const recentThreads = [...threads].slice(0, 6);
-    const totalMessages = threads.reduce((s: number, t: any) => s + (t.replies || 0) + 1, 0);
-
-    return (
-      <div className="min-h-screen font-mono" style={{ backgroundColor: LK.page }}>
-        {/* Nav */}
-        <nav style={{ backgroundColor: LK.nav, borderBottom: `2px solid ${LK.accent}` }} className="sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-5 min-w-0">
-              <div className="cursor-pointer flex-shrink-0"
-                onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }}>
-                {siteLogoUrl ? (
-                  <img src={siteLogoUrl} alt="Logo" style={{ height: 24, width: 'auto' }} className="object-contain" />
-                ) : (
-                  <span className="font-bold tracking-widest text-sm" style={{ color: LK.accent }}>ASCENDMAXX</span>
-                )}
-              </div>
-              <div className="hidden sm:flex items-center gap-4 text-xs font-semibold" style={{ color: LK.muted }}>
-                <button onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }} className="hover:text-white transition-colors">Home</button>
-                <button onClick={() => { setCurrentView('forums'); setSelectedForum(null); setViewingThread(null); }} className="hover:text-white transition-colors">Forums</button>
-                <button onClick={() => { setCurrentView('members'); setViewingThread(null); }} className="hover:text-white transition-colors">Members</button>
-                <button onClick={() => { setCurrentView('about'); setViewingThread(null); }} className="hover:text-white transition-colors">About</button>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {isDeveloper && (
-                <div className="relative hidden sm:block">
-                  <button onClick={() => setShowThemeMenu(v => !v)}
-                    className="text-[10px] hover:text-white border px-1.5 py-0.5" style={{ color: LK.muted, borderColor: LK.border }}>
-                    theme ▾
-                  </button>
-                  {showThemeMenu && (
-                    <div className="absolute top-full right-0 mt-1 border z-[100] w-44" style={{ backgroundColor: LK.card, borderColor: LK.border }}>
-                      {([
-                        { id: 'current', label: 'Current' },
-                        { id: 'looksmax-dark', label: 'Looksmax (dark)' },
-                      ] as { id: SiteTheme; label: string }[]).map(opt => (
-                        <button key={opt.id} onClick={() => changeSiteTheme(opt.id)}
-                          className="block w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-[#1c1c1f]"
-                          style={{ color: siteTheme === opt.id ? LK.accent : LK.text }}>
-                          {siteTheme === opt.id ? '● ' : ''}{opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {!isLoggedIn ? (
-                <>
-                  <button onClick={() => setShowLogin(true)} className="text-xs px-2 py-1" style={{ color: LK.muted }}>Log in</button>
-                  <button onClick={() => setShowRegister(true)} className="text-xs font-bold px-3 py-1.5 rounded-sm text-black" style={{ backgroundColor: LK.accent }}>Register</button>
-                </>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <button onClick={() => openProfile(currentUser)} className="flex items-center gap-1.5">
-                    <Avatar src={currentUserData?.avatar} username={currentUser} size={22} />
-                    <span className="text-xs hidden sm:block" style={{ color: LK.text }}>{currentUser}</span>
-                  </button>
-                  <button onClick={logout} className="text-xs hover:text-white" style={{ color: LK.muted }}>logout</button>
-                </div>
-              )}
-            </div>
-          </div>
-        </nav>
-
-        <div className="max-w-6xl mx-auto p-4 flex gap-4 items-start flex-wrap lg:flex-nowrap">
-          {/* Main column */}
-          <div className="flex-1 min-w-0 w-full">
-            {!viewingThread && currentView === 'home' && (
-              <>
-                {!isAnnouncementDeleted && (
-                  <div className="mb-4 border" style={{ borderColor: LK.border, backgroundColor: LK.card }}>
-                    <div className="px-3 py-2 text-xs font-bold uppercase tracking-widest border-b-2 flex items-center justify-between" style={{ color: LK.accent, borderColor: LK.accent, backgroundColor: LK.nav }}>
-                      <span>Important</span>
-                      {isDeveloper && (
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => { setAnnDraft({ title: siteAnnouncement.title, description: siteAnnouncement.description }); setEditingAnnouncement(true); }} className="hover:text-white text-[10px]" style={{ color: LK.muted }}>edit</button>
-                          <button onClick={deleteAnnouncement} className="hover:text-white text-[10px]" style={{ color: LK.muted }}>del</button>
-                        </div>
-                      )}
-                    </div>
-                    <div onClick={() => setViewingThread(siteAnnouncement)} className="px-4 py-3 cursor-pointer hover:bg-[#151517]">
-                      <div className="text-sm font-semibold" style={{ color: LK.link }}>{siteAnnouncement.title}</div>
-                      <div className="text-[11px] mt-1" style={{ color: LK.muted }}>{siteAnnouncement.author} · {siteAnnouncement.date}</div>
-                    </div>
-                  </div>
-                )}
-                {forumSections.map(section => {
-                  const sectionForums = [
-                    ...allForums.filter(f => f.section === section),
-                    ...customForums.filter(f => f.section === section),
-                  ];
-                  if (sectionForums.length === 0) return null;
-                  return (
-                    <div key={section} className="mb-4 border" style={{ borderColor: LK.border }}>
-                      <div className="px-3 py-2 text-xs font-bold uppercase tracking-widest border-b-2" style={{ color: LK.accent, borderColor: LK.accent, backgroundColor: LK.nav }}>{section}</div>
-                      {sectionForums.map(forum => <LKForumRow key={forum.id} forum={forum} />)}
-                    </div>
-                  );
-                })}
-              </>
-            )}
-
-            {!viewingThread && currentView === 'forums' && !selectedForum && (
-              <div className="border" style={{ borderColor: LK.border }}>
-                <div className="px-3 py-2 text-xs font-bold uppercase tracking-widest border-b-2" style={{ color: LK.accent, borderColor: LK.accent, backgroundColor: LK.nav }}>Forums</div>
-                {[...allForums, ...customForums].map(forum => <LKForumRow key={forum.id} forum={forum} />)}
-              </div>
-            )}
-
-            {!viewingThread && currentView === 'forums' && selectedForum && (
-              <div className="border" style={{ borderColor: LK.border }}>
-                <div className="px-3 py-2 flex items-center justify-between border-b-2" style={{ backgroundColor: LK.nav, borderColor: LK.accent }}>
-                  <div>
-                    <button onClick={() => setSelectedForum(null)} className="text-[10px] hover:text-white block" style={{ color: LK.muted }}>← Forums</button>
-                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: LK.accent }}>{selectedForum.name}</span>
-                  </div>
-                  {isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && (
-                    <button onClick={() => setShowNewThreadModal(true)} className="text-xs font-bold px-3 py-1.5 rounded-sm text-black" style={{ backgroundColor: LK.accent }}>+ New Thread</button>
-                  )}
-                </div>
-                {threadsLoading ? (
-                  <div className="text-center py-16 text-sm" style={{ color: LK.muted }}>Loading...</div>
-                ) : visibleThreads.length === 0 ? (
-                  <div className="text-center py-16 text-sm" style={{ color: LK.muted }}>No threads yet.</div>
-                ) : visibleThreads.map((t: any) => <LKThreadRow key={t.id} t={t} />)}
-              </div>
-            )}
-
-            {viewingThread && (() => {
-              const isAnn = viewingThread.id === 'ann-1';
-              const opUserData = threadUserCache[viewingThread.authorUid || ''] || null;
-              return (
-                <div className="border" style={{ borderColor: LK.border }}>
-                  <div className="px-4 py-3 border-b-2" style={{ backgroundColor: LK.nav, borderColor: LK.accent }}>
-                    <button onClick={() => setViewingThread(null)} className="text-[10px] hover:text-white uppercase tracking-widest mb-1 block" style={{ color: LK.muted }}>← Back</button>
-                    <div className="flex items-start justify-between gap-3">
-                      <h2 className="font-bold text-base leading-snug" style={{ color: LK.text }}>{viewingThread.title}</h2>
-                      <div className="flex gap-2 flex-shrink-0">
-                        {isDeveloper && !isAnn && (
-                          <button onClick={() => togglePin(viewingThread.id)} className="text-[10px] hover:text-white uppercase tracking-widest" style={{ color: LK.muted }}>
-                            {pinnedIds.includes(viewingThread.id) ? 'Unpin' : 'Pin'}
-                          </button>
-                        )}
-                        {isDeveloper && isAnn && (
-                          <>
-                            <button onClick={() => { setAnnDraft({ title: viewingThread.title, description: viewingThread.description }); setEditingAnnouncement(true); setViewingThread(null); }} className="text-[10px] hover:text-white uppercase tracking-widest" style={{ color: LK.muted }}>Edit</button>
-                            <button onClick={deleteAnnouncement} className="text-[10px] hover:text-white uppercase tracking-widest" style={{ color: LK.muted }}>Delete</button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <LKPostRow userData={opUserData} authorName={viewingThread.author} authorAvatar={viewingThread.authorAvatar}
-                    authorUid={viewingThread.authorUid} date={viewingThread.date} text={viewingThread.description}
-                    images={viewingThread.images} postNum={1} />
-
-                  {threadReplies.map((r: any, i: number) => (
-                    <LKPostRow key={r.id} userData={threadUserCache[r.authorUid] || null} authorName={r.author}
-                      authorAvatar={r.authorAvatar} authorUid={r.authorUid} date={r.date} text={r.text} postNum={i + 2} />
-                  ))}
-
-                  <div className="px-4 py-2 text-[11px] uppercase tracking-widest" style={{ color: LK.muted, backgroundColor: '#0d0d0f' }}>
-                    {threadReplies.length} {threadReplies.length === 1 ? 'Reply' : 'Replies'}
-                  </div>
-
-                  {isLoggedIn ? (
-                    <div className="px-4 py-4 border-t" style={{ borderColor: LK.border, backgroundColor: LK.card }}>
-                      <div className="text-[11px] uppercase tracking-widest mb-2" style={{ color: LK.muted }}>Leave a reply</div>
-                      <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-                        placeholder="Write your reply..." rows={3}
-                        className="w-full border px-3 py-2.5 text-sm font-mono resize-none mb-3 focus:outline-none"
-                        style={{ borderColor: LK.border, backgroundColor: '#0d0d0f', color: LK.text }} />
-                      <button onClick={postReply} disabled={postingReply || !replyText.trim()}
-                        className="text-xs font-bold px-4 py-2.5 rounded-sm text-black disabled:opacity-50" style={{ backgroundColor: LK.accent }}>
-                        {postingReply ? 'Posting...' : 'Post Reply'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="px-4 py-4 text-center text-xs border-t" style={{ borderColor: LK.border, color: LK.muted }}>
-                      <button onClick={() => setShowLogin(true)} className="underline" style={{ color: LK.link }}>Log in</button> to reply.
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {!viewingThread && currentView === 'members' && (
-              <div className="border p-4" style={{ borderColor: LK.border, backgroundColor: LK.card }}>
-                <MembersList openProfile={openProfile} presenceMap={presenceMap} startDM={startDM} currentUid={currentUid} />
-              </div>
-            )}
-
-            {!viewingThread && currentView === 'about' && (
-              <div className="border p-4 text-sm" style={{ borderColor: LK.border, backgroundColor: LK.card, color: LK.text }}>
-                {aboutText}
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="w-full lg:w-72 flex-shrink-0">
-            <LKSidebarCard title="Latest Threads">
-              <div className="space-y-3">
-                {recentThreads.length === 0 && <div className="text-xs" style={{ color: LK.muted }}>No threads yet.</div>}
-                {recentThreads.map((t: any) => (
-                  <div key={t.id} onClick={() => setViewingThread(t)} className="cursor-pointer">
-                    {t.tag && (
-                      <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-black mb-0.5"
-                        style={{ backgroundColor: t.tagColor || LK.accent }}>{t.tag}</span>
-                    )}
-                    <div className="text-xs font-semibold hover:underline leading-snug" style={{ color: LK.link }}>{t.title}</div>
-                    <div className="text-[10px]" style={{ color: LK.muted }}>Started by {t.author} · {t.date}</div>
-                  </div>
-                ))}
-              </div>
-            </LKSidebarCard>
-            <LKSidebarCard title="Statistics">
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between"><span style={{ color: LK.muted }}>Threads:</span><span className="font-semibold" style={{ color: LK.text }}>{threads.length}</span></div>
-                <div className="flex justify-between"><span style={{ color: LK.muted }}>Messages:</span><span className="font-semibold" style={{ color: LK.text }}>{totalMessages}</span></div>
-              </div>
-            </LKSidebarCard>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   if (authLoading) return (
     <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
       <div className="text-emerald-500 text-lg font-mono tracking-widest">ASCENDMAXX</div>
@@ -1995,9 +1621,6 @@ export default function AscendMaxx() {
   return (
     <div className="min-h-screen text-zinc-200 font-sans" style={{ backgroundColor: activeBg }}>
 
-      {siteTheme === 'looksmax-dark' && LooksmaxDarkTheme()}
-
-      {siteTheme !== 'looksmax-dark' && (<>
       {sidebarOpen && <div className="fixed inset-0 bg-black/70 z-[60] lg:hidden" onClick={() => setSidebarOpen(false)} />}
       <div className={`fixed top-0 left-0 h-full w-64 bg-zinc-950 border-r border-zinc-800 z-[70] overflow-y-auto transform transition-transform duration-200 lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{ scrollbarWidth: 'none' }}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
@@ -2033,29 +1656,6 @@ export default function AscendMaxx() {
                 className="hidden sm:block text-[9px] font-mono text-zinc-700 hover:text-zinc-400 transition flex-shrink-0">
                 {siteLogoUrl ? 'edit logo' : 'add logo'}
               </button>
-            )}
-            {isDeveloper && (
-              <div className="relative hidden sm:block flex-shrink-0">
-                <button
-                  onClick={() => setShowThemeMenu(v => !v)}
-                  className="text-[9px] font-mono text-zinc-700 hover:text-zinc-400 transition border border-zinc-800 px-1.5 py-0.5">
-                  theme: {siteTheme === 'looksmax-dark' ? 'looksmax' : 'current'} ▾
-                </button>
-                {showThemeMenu && (
-                  <div className="absolute top-full left-0 mt-1 bg-zinc-950 border border-zinc-800 z-[100] w-40">
-                    {([
-                      { id: 'current', label: 'Current' },
-                      { id: 'looksmax-dark', label: 'Looksmax (dark)' },
-                    ] as { id: SiteTheme; label: string }[]).map(opt => (
-                      <button key={opt.id}
-                        onClick={() => changeSiteTheme(opt.id)}
-                        className={`block w-full text-left px-2.5 py-1.5 text-[10px] font-mono hover:bg-zinc-900 ${siteTheme === opt.id ? 'text-emerald-400' : 'text-zinc-400'}`}>
-                        {siteTheme === opt.id ? '● ' : ''}{opt.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             )}
 
             {/* Desktop nav tabs */}
@@ -2450,7 +2050,6 @@ export default function AscendMaxx() {
         className="fixed bottom-14 sm:bottom-6 right-4 sm:right-6 bg-emerald-600 hover:bg-emerald-500 text-black font-mono font-bold px-4 py-2.5 text-xs uppercase tracking-wider shadow-2xl z-50 transition-colors">
         AI Analysis
       </button>
-      </>)}
 
       {/* ── PROFILE MODAL ─────────────────────────────────────────────────── */}
       {viewingProfile && (() => {
@@ -2550,7 +2149,7 @@ export default function AscendMaxx() {
                 </>
               )}
               {isLoggedIn && viewingProfile.uid === currentUid && (
-                <button onClick={() => { setProfileBio(currentUserData?.bio || ''); setProfileAvatar(currentUserData?.avatar || ''); setShowEditProfile(true); }}
+                <button onClick={() => { setProfileBio(currentUserData?.bio || ''); setProfileAvatar(currentUserData?.avatar || ''); setProfileTagColor(currentUserData?.tagColor || ''); setShowEditProfile(true); }}
                   className="flex-1 py-2.5 border border-zinc-700 hover:border-zinc-500 text-zinc-400 text-xs font-mono uppercase tracking-wider transition-colors">
                   Edit Profile
                 </button>
@@ -2982,6 +2581,8 @@ export default function AscendMaxx() {
 
       {/* ── EDIT PROFILE ──────────────────────────────────────────────────── */}
       {showEditProfile && (() => {
+        const myTotal = (currentUserData?.threadCount || 0) + (currentUserData?.replyCount || 0);
+        const isThreadmaxxer = getRank(myTotal).isThreadmaxxer;
         return (
           <div className="fixed inset-0 bg-black/90 z-[400] flex items-end sm:items-center justify-center">
             <div className="bg-zinc-950 border border-zinc-800 w-full sm:max-w-md">
@@ -3002,6 +2603,22 @@ export default function AscendMaxx() {
                 <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Bio</label>
                 <textarea value={profileBio} onChange={e => setProfileBio(e.target.value)}
                   placeholder="Tell the community about yourself..." rows={4} className={`${inputCls} resize-none mb-4`} />
+                {isThreadmaxxer && (
+                  <div className="mb-4">
+                    <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">Threadmaxxer Tag Colour</label>
+                    <div className="flex flex-wrap gap-2">
+                      {THREADMAXXER_COLORS.map(c => (
+                        <button key={c.value} onClick={() => setProfileTagColor(c.value)}
+                          className={`w-7 h-7 rounded-sm border-2 transition-all ${profileTagColor === c.value ? 'border-white scale-110' : 'border-transparent'}`}
+                          style={{ backgroundColor: c.value }} title={c.name} />
+                      ))}
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-[10px] font-mono text-zinc-500">Preview: </span>
+                      <RankTag total={200} color={profileTagColor || currentUserData?.tagColor} tagLabel={currentUserData?.tagLabel} />
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button onClick={() => setShowEditProfile(false)} className={btnSecondary}>Cancel</button>
                   <button onClick={saveProfile} disabled={savingProfile} className={btnPrimary}>
