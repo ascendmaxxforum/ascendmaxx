@@ -483,12 +483,14 @@ export default function AscendMaxx() {
   const [presenceMap, setPresenceMap]   = useState<Record<string, boolean>>({});
 
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showMobileLatest, setShowMobileLatest] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [activeBg, setActiveBg]               = useState('#0d0d0d');
   const themes = [
     { name: 'Default',  bg: '#0d0d0d' }, { name: 'Midnight', bg: '#0d1117' },
     { name: 'Navy',     bg: '#0a0f1e' }, { name: 'Forest',   bg: '#0a130d' },
     { name: 'Crimson',  bg: '#130a0a' }, { name: 'Purple',   bg: '#0f0a1a' },
+    { name: 'White',    bg: '#ffffff' },
   ];
 
   const [showRateModal, setShowRateModal]     = useState(false);
@@ -1941,8 +1943,56 @@ export default function AscendMaxx() {
     </div>
   );
 
+  const isWhiteTheme = activeBg === '#ffffff';
+
   return (
-    <div className="min-h-screen text-zinc-200 font-sans pb-16 sm:pb-0" style={{ backgroundColor: activeBg }}>
+    <div className={`min-h-screen font-sans pb-16 sm:pb-0 ${isWhiteTheme ? 'theme-white' : 'text-zinc-200'}`} style={{ backgroundColor: activeBg }}>
+      {isWhiteTheme && (
+        <style>{`
+          .theme-white { color: #14532d; }
+          .theme-white .bg-black,
+          .theme-white .bg-zinc-950,
+          .theme-white .bg-zinc-950\\/50,
+          .theme-white .bg-zinc-950\\/95,
+          .theme-white .bg-zinc-900,
+          .theme-white .bg-zinc-900\\/30,
+          .theme-white .bg-zinc-900\\/40,
+          .theme-white .bg-zinc-900\\/50,
+          .theme-white .bg-zinc-900\\/60,
+          .theme-white .bg-zinc-900\\/70,
+          .theme-white .bg-zinc-800,
+          .theme-white .bg-zinc-700 { background-color: #f0fdf4; }
+
+          .theme-white .border-zinc-950,
+          .theme-white .border-zinc-900,
+          .theme-white .border-zinc-800,
+          .theme-white .border-zinc-800\\/50,
+          .theme-white .border-zinc-800\\/60,
+          .theme-white .border-zinc-700,
+          .theme-white .border-zinc-600,
+          .theme-white .border-zinc-500,
+          .theme-white .divide-zinc-800 { border-color: #86efac; }
+
+          .theme-white .text-zinc-100,
+          .theme-white .text-zinc-200,
+          .theme-white .text-zinc-300,
+          .theme-white .text-zinc-400 { color: #14532d; }
+          .theme-white .text-zinc-500,
+          .theme-white .text-zinc-600,
+          .theme-white .text-zinc-700,
+          .theme-white .text-zinc-800 { color: #166534; }
+
+          .theme-white .placeholder-zinc-600::placeholder { color: #4d7c5f; }
+
+          .theme-white .hover\\:bg-zinc-800:hover,
+          .theme-white .hover\\:bg-zinc-900:hover { background-color: #dcfce7; }
+          .theme-white .hover\\:text-zinc-200:hover,
+          .theme-white .hover\\:text-zinc-300:hover,
+          .theme-white .hover\\:text-zinc-400:hover { color: #052e16; }
+          .theme-white .hover\\:border-zinc-500:hover,
+          .theme-white .hover\\:border-zinc-600:hover { border-color: #4ade80; }
+        `}</style>
+      )}
 
       <header className="bg-zinc-950 border-b border-zinc-800 sticky top-0 z-50">
         {/* ── Logo row — large wordmark/image, its own row ─────────────────── */}
@@ -2099,11 +2149,26 @@ export default function AscendMaxx() {
             <div>
               <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                 <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Forums</h2>
+                <button onClick={() => setShowMobileLatest(true)}
+                  className="lg:hidden text-[10px] font-mono text-zinc-500 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2.5 py-1.5 uppercase tracking-widest transition-colors">
+                  Latest Threads
+                </button>
               </div>
               {threadsLoading
                 ? <div className="text-center py-6 text-zinc-600 font-mono text-xs">Loading...</div>
                 : renderForumIndex()}
             </div>
+          )}
+
+          {/* ── MOBILE LATEST THREADS PANEL — same info as the desktop sidebar, since it isn't shown below lg ── */}
+          {showMobileLatest && (
+            <Modal onClose={() => setShowMobileLatest(false)} maxW="max-w-sm">
+              <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center sticky top-0 bg-zinc-950 z-10">
+                <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Latest Threads</span>
+                <button onClick={() => setShowMobileLatest(false)} className="text-zinc-600 font-mono text-sm">x</button>
+              </div>
+              {StatsPanel()}
+            </Modal>
           )}
 
           {currentView === 'forums' && selectedForum && !viewingThread && (() => {
