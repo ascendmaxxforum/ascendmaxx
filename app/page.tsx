@@ -291,8 +291,8 @@ function ForumIcon({ name }: { name: string }) {
     <circle cx="12" cy="12" r="7.5" />
   );
   return (
-    <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center text-zinc-500">
-      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
+    <div className="w-9 h-9 sm:w-11 sm:h-11 flex-shrink-0 flex items-center justify-center text-zinc-500">
+      <svg viewBox="0 0 24 24" className="w-[21px] h-[21px] sm:w-[27px] sm:h-[27px]" fill="none" stroke="currentColor"
         strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
         {paths}
       </svg>
@@ -483,6 +483,7 @@ export default function AscendMaxx() {
   const [presenceMap, setPresenceMap]   = useState<Record<string, boolean>>({});
 
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [activeBg, setActiveBg]               = useState('#0d0d0d');
   const themes = [
     { name: 'Default',  bg: '#0d0d0d' }, { name: 'Midnight', bg: '#0d1117' },
@@ -1492,7 +1493,7 @@ export default function AscendMaxx() {
         return (
           <div key={section} className="mb-1">
             {/* Section header */}
-            <div className="px-4 py-2.5 bg-zinc-900/70 border-y border-zinc-800 flex items-start justify-between gap-3">
+            <div className="px-4 py-3 sm:py-2.5 bg-zinc-900/70 border-y border-zinc-800 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-zinc-300">{section}</div>
                 <div className="text-[10px] font-mono text-zinc-600 mt-0.5 leading-snug">{sectionDescriptions[section] || ''}</div>
@@ -1516,63 +1517,77 @@ export default function AscendMaxx() {
               return (
                 <div key={forum.id ?? forum.firestoreId}
                   onClick={() => { setSelectedForum(forum); setCurrentView('forums'); setViewingThread(null); }}
-                  className="flex items-stretch border-b border-zinc-800 hover:bg-zinc-900/50 cursor-pointer transition-colors group">
-                  {/* Left: icon + forum name + description */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0 px-4 py-3">
-                    <ForumIcon name={forum.name} />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono font-semibold text-zinc-100 group-hover:text-emerald-400 transition-colors truncate">
-                          {forum.name}
-                        </span>
-                        {forum.isCustom && isDeveloper && (
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (!confirm(`Delete forum "${forum.name}"?`)) return;
-                              await deleteDoc(doc(db, 'forumTopics', forum.firestoreId));
-                            }}
-                            className="text-[9px] font-mono text-zinc-700 hover:text-red-400 transition">
-                            del
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-[11px] font-mono text-zinc-600 mt-0.5 leading-snug line-clamp-1">
-                        {forum.desc || `Discuss ${forum.name.toLowerCase()}.`}
-                      </p>
-                    </div>
-                  </div>
-                  {/* Middle: thread/message counts */}
-                  <div className="hidden md:flex items-center gap-6 px-4 border-l border-zinc-800/60 flex-shrink-0">
-                    <div className="text-center w-14">
-                      <div className="text-sm font-mono font-bold text-zinc-300">{threadCount}</div>
-                      <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Threads</div>
-                    </div>
-                    <div className="text-center w-14">
-                      <div className="text-sm font-mono font-bold text-zinc-300">{messageCount}</div>
-                      <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Messages</div>
-                    </div>
-                  </div>
-                  {/* Right: latest thread preview */}
-                  <div className="hidden sm:flex flex-col justify-center px-4 py-3 min-w-0 w-64 border-l border-zinc-800/60 flex-shrink-0">
-                    {latestThread ? (
-                      <>
-                        <p className="text-xs font-mono text-zinc-300 truncate leading-snug">
-                          {latestThread.title}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Avatar
-                            src={authorAvatarCache[latestThread.authorUid] || latestThread.authorAvatar}
-                            username={latestThread.author}
-                            size={14}
-                          />
-                          <span className="text-[10px] font-mono text-emerald-500 truncate">{latestThread.author}</span>
-                          <span className="text-[10px] font-mono text-zinc-600 flex-shrink-0">{latestThread.date}</span>
+                  className="border-b border-zinc-800 hover:bg-zinc-900/50 active:bg-zinc-900/70 cursor-pointer transition-colors group">
+                  <div className="flex items-stretch">
+                    {/* Left: icon + forum name + description */}
+                    <div className="flex items-start gap-3 flex-1 min-w-0 px-4 py-3.5 sm:py-3">
+                      <ForumIcon name={forum.name} />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-mono font-semibold text-zinc-100 group-hover:text-emerald-400 transition-colors truncate">
+                            {forum.name}
+                          </span>
+                          {forum.isCustom && isDeveloper && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!confirm(`Delete forum "${forum.name}"?`)) return;
+                                await deleteDoc(doc(db, 'forumTopics', forum.firestoreId));
+                              }}
+                              className="text-[9px] font-mono text-zinc-700 hover:text-red-400 transition">
+                              del
+                            </button>
+                          )}
                         </div>
-                      </>
-                    ) : (
-                      <span className="text-[10px] font-mono text-zinc-700">No threads yet</span>
-                    )}
+                        <p className="text-[11px] font-mono text-zinc-600 mt-0.5 leading-snug line-clamp-1">
+                          {forum.desc || `Discuss ${forum.name.toLowerCase()}.`}
+                        </p>
+                        {/* Condensed stats + latest activity — mobile only */}
+                        <div className="sm:hidden flex items-center gap-3 mt-1.5 text-[10px] font-mono text-zinc-600">
+                          <span><span className="text-zinc-400 font-bold">{threadCount}</span> threads</span>
+                          <span className="text-zinc-800">·</span>
+                          <span><span className="text-zinc-400 font-bold">{messageCount}</span> msgs</span>
+                          {latestThread && (
+                            <>
+                              <span className="text-zinc-800">·</span>
+                              <span className="truncate text-emerald-500">{latestThread.author}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Middle: thread/message counts */}
+                    <div className="hidden md:flex items-center gap-6 px-4 border-l border-zinc-800/60 flex-shrink-0">
+                      <div className="text-center w-14">
+                        <div className="text-sm font-mono font-bold text-zinc-300">{threadCount}</div>
+                        <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Threads</div>
+                      </div>
+                      <div className="text-center w-14">
+                        <div className="text-sm font-mono font-bold text-zinc-300">{messageCount}</div>
+                        <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Messages</div>
+                      </div>
+                    </div>
+                    {/* Right: latest thread preview */}
+                    <div className="hidden sm:flex flex-col justify-center px-4 py-3 min-w-0 w-64 border-l border-zinc-800/60 flex-shrink-0">
+                      {latestThread ? (
+                        <>
+                          <p className="text-xs font-mono text-zinc-300 truncate leading-snug">
+                            {latestThread.title}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Avatar
+                              src={authorAvatarCache[latestThread.authorUid] || latestThread.authorAvatar}
+                              username={latestThread.author}
+                              size={14}
+                            />
+                            <span className="text-[10px] font-mono text-emerald-500 truncate">{latestThread.author}</span>
+                            <span className="text-[10px] font-mono text-zinc-600 flex-shrink-0">{latestThread.date}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-[10px] font-mono text-zinc-700">No threads yet</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -1927,38 +1942,58 @@ export default function AscendMaxx() {
   );
 
   return (
-    <div className="min-h-screen text-zinc-200 font-sans" style={{ backgroundColor: activeBg }}>
+    <div className="min-h-screen text-zinc-200 font-sans pb-16 sm:pb-0" style={{ backgroundColor: activeBg }}>
 
       <header className="bg-zinc-950 border-b border-zinc-800 sticky top-0 z-50">
         {/* ── Logo row — large wordmark/image, its own row ─────────────────── */}
-        <div className="max-w-7xl mx-auto px-4 pt-4 pb-3 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 pt-3.5 pb-2.5 sm:pt-4 sm:pb-3 flex items-center justify-between gap-4">
           <div
-            className="cursor-pointer flex items-center gap-3"
+            className="cursor-pointer flex items-center gap-3 min-w-0"
             onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }}>
             {siteLogoUrl ? (
               <img
                 src={siteLogoUrl}
                 alt="Logo"
-                style={{ height: Math.max(siteLogoSize, 40), width: 'auto' }}
+                style={{ height: `clamp(30px, 8vw, ${Math.max(siteLogoSize, 40)}px)`, width: 'auto' }}
                 className="object-contain"
               />
             ) : (
-              <span className="text-emerald-500 font-mono font-bold tracking-widest text-2xl sm:text-3xl">ASCENDMAXX</span>
+              <span className="text-emerald-500 font-mono font-bold tracking-widest text-xl sm:text-3xl truncate">ASCENDMAXX</span>
             )}
           </div>
-          {isDeveloper && (
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {isDeveloper && (
+              <button
+                onClick={() => { setLogoUrlDraft(siteLogoUrl); setLogoSizeDraft(siteLogoSize); setEditingLogo(true); }}
+                className="hidden sm:block text-[9px] font-mono text-zinc-700 hover:text-zinc-400 transition">
+                {siteLogoUrl ? 'edit logo' : 'add logo'}
+              </button>
+            )}
             <button
-              onClick={() => { setLogoUrlDraft(siteLogoUrl); setLogoSizeDraft(siteLogoSize); setEditingLogo(true); }}
-              className="text-[9px] font-mono text-zinc-700 hover:text-zinc-400 transition flex-shrink-0">
-              {siteLogoUrl ? 'edit logo' : 'add logo'}
+              onClick={() => setShowMobileSearch(v => !v)}
+              aria-label="Search"
+              className={`sm:hidden w-9 h-9 flex items-center justify-center border transition-colors ${showMobileSearch ? 'border-emerald-600 text-emerald-400' : 'border-zinc-800 text-zinc-400'}`}>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="10.5" cy="10.5" r="6.5" />
+                <path d="M19.5 19.5l-4.3-4.3" />
+              </svg>
             </button>
-          )}
+          </div>
         </div>
+
+        {/* ── Mobile search — expands under the logo row ────────────────────── */}
+        {showMobileSearch && (
+          <div className="sm:hidden px-4 pb-3">
+            <input type="text" placeholder="Search the forums..." autoFocus
+              className="w-full bg-zinc-900 border border-zinc-700 px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-emerald-600 text-zinc-200 placeholder-zinc-600" />
+          </div>
+        )}
 
         {/* ── Nav bar — tabs on the left, search & auth on the right ───────── */}
         <nav className="border-t border-zinc-800">
-          <div className="max-w-7xl mx-auto px-4 h-11 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-0.5 text-xs font-mono overflow-x-auto min-w-0" style={{ scrollbarWidth: 'none' }}>
+          <div className="max-w-7xl mx-auto px-4 h-12 sm:h-11 flex items-center justify-between gap-4">
+            {/* Tabs — shown on desktop; on mobile the bottom nav already covers these, so this row focuses on account actions */}
+            <div className="hidden sm:flex items-center gap-0.5 text-xs font-mono overflow-x-auto min-w-0" style={{ scrollbarWidth: 'none' }}>
               {(['Home','Forums','Members','About','Stickers'] as const).map(v => (
                 <button key={v}
                   onClick={() => {
@@ -1981,6 +2016,10 @@ export default function AscendMaxx() {
                   )}
                 </button>
               )}
+            </div>
+            {/* Current section label — mobile only, replaces the tab row */}
+            <div className="sm:hidden text-[11px] font-mono uppercase tracking-widest text-zinc-500 truncate">
+              {currentView}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <input type="text" placeholder="Search..."
@@ -2024,7 +2063,7 @@ export default function AscendMaxx() {
       {showDmPanel && isLoggedIn && DmPanel()}
 
       <div className="max-w-7xl mx-auto flex">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 lg:pl-6 xl:pl-10">
 
           {currentView === 'home' && !viewingThread && (
             <div>
@@ -3112,33 +3151,43 @@ export default function AscendMaxx() {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAV — horizontally scrollable so all tabs are reachable */}
-      <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 sm:hidden z-50">
-        <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as any}>
+      {/* MOBILE BOTTOM NAV — icon + label, snap-scrollable so all tabs stay reachable and easy to tap */}
+      <div className="fixed bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur border-t border-zinc-800 sm:hidden z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex overflow-x-auto snap-x snap-mandatory" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as any}>
           {[
-            { label: 'Home',     view: 'home' },
-            { label: 'Forums',   view: 'forums' },
-            { label: 'DMs',      view: 'dms' },
-            { label: 'Members',  view: 'members' },
-            { label: 'Stickers', view: 'stickers' },
-            { label: 'About',    view: 'about' },
-            { label: 'Theme',    view: '__theme__' },
-          ].map(({ label, view }) => (
-            <button
-              key={view}
-              onClick={() => {
-                if (view === '__theme__') { setShowThemePicker(v => !v); return; }
-                setCurrentView(view as View);
-                if (view !== 'forums') setSelectedForum(null);
-                setViewingThread(null);
-              }}
-              className={`flex-shrink-0 px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider transition-colors whitespace-nowrap ${
-                currentView === view ? 'text-emerald-400' : 'text-zinc-600'
-              }`}>
-              {label}
-              {view === 'dms' && dmUnread > 0 && <span className="ml-1 text-emerald-400">({dmUnread})</span>}
-            </button>
-          ))}
+            { label: 'Home',     view: 'home',       icon: <path d="M4 11.5l8-7 8 7M6 10v9a1 1 0 001 1h4v-6h2v6h4a1 1 0 001-1v-9" /> },
+            { label: 'Forums',   view: 'forums',      icon: <><rect x="4" y="4.5" width="7" height="7" rx="1" /><rect x="13" y="4.5" width="7" height="7" rx="1" /><rect x="4" y="13.5" width="7" height="7" rx="1" /><rect x="13" y="13.5" width="7" height="7" rx="1" /></> },
+            { label: 'DMs',      view: 'dms',         icon: <path d="M4 5.5A1.5 1.5 0 015.5 4h13A1.5 1.5 0 0120 5.5v8a1.5 1.5 0 01-1.5 1.5H9l-4 4v-4H5.5A1.5 1.5 0 014 13.5v-8z" /> },
+            { label: 'Members',  view: 'members',     icon: <><circle cx="9" cy="8.5" r="3" /><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" /><path d="M15.5 6.5a3 3 0 010 5.8" /><path d="M16.5 14.2c2.3.4 3.8 2.2 3.8 4.8" /></> },
+            { label: 'Stickers', view: 'stickers',    icon: <><circle cx="12" cy="12" r="8" /><path d="M9.5 10.2h.01M14.5 10.2h.01" /><path d="M8.5 14a4 4 0 007 0" /></> },
+            { label: 'About',    view: 'about',       icon: <><circle cx="12" cy="12" r="8" /><path d="M12 11v5.5M12 8v.01" /></> },
+            { label: 'Theme',    view: '__theme__',   icon: <><circle cx="12" cy="12" r="8" /><circle cx="9" cy="10" r="1" /><circle cx="13.5" cy="8.5" r="1" /><circle cx="16" cy="12.5" r="1" /><path d="M12 4a8 8 0 000 16c1 0 1.5-.5 1.5-1.3 0-.5-.3-.8-.3-1.3 0-.7.5-1.2 1.2-1.2h1.4A3.2 3.2 0 0019 13.7C19 8 16 4 12 4z" /></> },
+          ].map(({ label, view, icon }) => {
+            const active = currentView === view;
+            return (
+              <button
+                key={view}
+                onClick={() => {
+                  if (view === '__theme__') { setShowThemePicker(v => !v); return; }
+                  setCurrentView(view as View);
+                  if (view !== 'forums') setSelectedForum(null);
+                  setViewingThread(null);
+                }}
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex-shrink-0 snap-start flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[58px] px-3 transition-colors ${
+                  active ? 'text-emerald-400' : 'text-zinc-500 active:text-zinc-300'
+                }`}>
+                {active && <span className="absolute top-0 left-3 right-3 h-0.5 bg-emerald-400" />}
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  {icon}
+                </svg>
+                <span className="text-[9px] font-mono uppercase tracking-wider whitespace-nowrap">
+                  {label}
+                  {view === 'dms' && dmUnread > 0 && <span className="ml-1 text-emerald-400">({dmUnread})</span>}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
