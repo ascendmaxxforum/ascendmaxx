@@ -18,19 +18,28 @@ const DEVELOPER_EMAIL = 'ascendmaxxforum@gmail.com';
 const DEVELOPER_USERNAME = 'ascendmaxx';
 
 const allForums = [
-  { id: 1,  section: 'Important',    name: 'Rules' },
-  { id: 2,  section: 'Important',    name: 'Announcements' },
-  { id: 3,  section: 'Off topic',    name: 'Lounge' },
-  { id: 4,  section: 'Off topic',    name: 'Music' },
-  { id: 5,  section: 'Off topic',    name: 'Media' },
-  { id: 6,  section: 'Looksmaxxing', name: 'Rate Me' },
-  { id: 7,  section: 'Looksmaxxing', name: 'Looksmaxxing' },
-  { id: 8,  section: 'Biohacking',   name: 'Cognitive improvement' },
-  { id: 9,  section: 'Moneymaxxing', name: 'Moneymaxxing' },
-  { id: 10, section: 'Larpmaxxing',  name: 'Larpmaxxing' },
+  { id: 1,  section: 'Important',    name: 'Rules',                desc: 'Forum rules and posting guidelines. Read before you post anywhere else.' },
+  { id: 2,  section: 'Important',    name: 'Announcements',        desc: 'Official updates, feature releases, and important site news from staff.' },
+  { id: 3,  section: 'Off topic',    name: 'Lounge',                desc: 'General discussion, site updates, and casual conversation.' },
+  { id: 4,  section: 'Off topic',    name: 'Music',                 desc: 'Share and discuss music, playlists, and anything audio related.' },
+  { id: 5,  section: 'Off topic',    name: 'Media',                 desc: 'Post and discuss images, videos, and other media.' },
+  { id: 6,  section: 'Looksmaxxing', name: 'Rate Me',                desc: 'Post your photos and get honest ratings and feedback from the community.' },
+  { id: 7,  section: 'Looksmaxxing', name: 'Looksmaxxing',           desc: 'Discuss looksmaxxing routines, advice, and aesthetics improvement.' },
+  { id: 8,  section: 'Biohacking',   name: 'Cognitive improvement', desc: 'Nootropics, focus, sleep, and optimizing brain performance.' },
+  { id: 9,  section: 'Moneymaxxing', name: 'Moneymaxxing',          desc: 'Building wealth, careers, and financial self-improvement.' },
+  { id: 10, section: 'Larpmaxxing',  name: 'Larpmaxxing',           desc: 'Off-beat and joke threads. Take everything here with a grain of salt.' },
 ];
 
 const forumSections = ['Important','Off topic','Looksmaxxing','Biohacking','Moneymaxxing','Larpmaxxing'];
+
+const sectionDescriptions: Record<string, string> = {
+  'Important':    'Official updates, rule changes, and site news from staff. Read before you post anywhere else.',
+  'Off topic':    'Anything that doesn\u2019t fit neatly under Looksmaxxing, Biohacking, or Moneymaxxing goes here.',
+  'Looksmaxxing': 'Get advice from others about hardmaxxing, softmaxxing, and aesthetics in general.',
+  'Biohacking':   'Optimizing the body and mind through habits, supplements, and routines.',
+  'Moneymaxxing': 'Building wealth, careers, and financial self-improvement.',
+  'Larpmaxxing':  'Off-beat and joke threads. Take everything here with a grain of salt.',
+};
 
 const THREADMAXXER_COLORS = [
   { name: 'Emerald', value: '#10b981' },
@@ -104,6 +113,15 @@ function Avatar({ src, username, size = 32 }: { src?: string; username: string; 
     <div style={{ ...style, fontSize: size < 28 ? 9 : 13 }}
       className="rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-zinc-300">
       {initials}
+    </div>
+  );
+}
+
+function ForumIcon({ name }: { name: string }) {
+  const initial = name ? name.trim().slice(0, 1).toUpperCase() : '?';
+  return (
+    <div className="w-9 h-9 flex-shrink-0 border border-zinc-700 bg-zinc-900 flex items-center justify-center font-mono text-sm text-zinc-500">
+      {initial}
     </div>
   );
 }
@@ -228,6 +246,7 @@ export default function AscendMaxx() {
 
   const [threads, setThreads]           = useState<any[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
+  const [forumPage, setForumPage]       = useState(1);
   const [showNewThreadModal, setShowNewThreadModal]     = useState(false);
   const [newThreadTitle, setNewThreadTitle]             = useState('');
   const [newThreadDescription, setNewThreadDescription] = useState('');
@@ -1217,6 +1236,8 @@ export default function AscendMaxx() {
   const visibleThreads = selectedForum ? threads.filter(t => t.forumId === selectedForum.id) : threads;
   const pinnedThreads  = threads.filter(t => pinnedIds.includes(t.id));
 
+  useEffect(() => { setForumPage(1); }, [selectedForum?.id]);
+
   // ── ThreadCard ────────────────────────────────────────────────────────────
   const ThreadCard = useCallback(({ thread, isAnnouncement = false, largePfp = false }: { thread: any; isAnnouncement?: boolean; largePfp?: boolean }) => {
     const isPinned = pinnedIds.includes(thread.id) || isAnnouncement;
@@ -1285,6 +1306,109 @@ export default function AscendMaxx() {
       </div>
     );
   }, [pinnedIds, isDeveloper, openProfile, authorAvatarCache]);
+
+  // ── ForumIndex — nutria-style categorized forum list (used on Home + Forums tab) ──
+  const renderForumIndex = useCallback(() => (
+    <>
+      {forumSections.map(section => {
+        const sectionForums = [
+          ...allForums.filter(f => f.section === section),
+          ...customForums.filter(f => f.section === section),
+        ];
+        if (sectionForums.length === 0) return null;
+        return (
+          <div key={section} className="mb-1">
+            {/* Section header */}
+            <div className="px-4 py-2.5 bg-zinc-900/70 border-y border-zinc-800 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-zinc-300">{section}</div>
+                <div className="text-[10px] font-mono text-zinc-600 mt-0.5 leading-snug">{sectionDescriptions[section] || ''}</div>
+              </div>
+              {isDeveloper && (
+                <button
+                  onClick={() => { setNewTopicSection(section); setShowNewTopicModal(true); }}
+                  className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 transition px-1 flex-shrink-0"
+                  title="Add forum topic">
+                  + Add Topic
+                </button>
+              )}
+            </div>
+            {/* Forum rows */}
+            {sectionForums.map(forum => {
+              const forumThreads = threads.filter(t => t.forumId === forum.id);
+              const latestThread = forumThreads[0] || null;
+              const threadCount = forumThreads.length;
+              const replySum = forumThreads.reduce((sum: number, t: any) => sum + (t.replies || 0), 0);
+              const messageCount = threadCount + replySum;
+              return (
+                <div key={forum.id ?? forum.firestoreId}
+                  onClick={() => { setSelectedForum(forum); setCurrentView('forums'); setViewingThread(null); }}
+                  className="flex items-stretch border-b border-zinc-800 hover:bg-zinc-900/50 cursor-pointer transition-colors group">
+                  {/* Left: icon + forum name + description */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0 px-4 py-3">
+                    <ForumIcon name={forum.name} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono font-semibold text-zinc-100 group-hover:text-emerald-400 transition-colors truncate">
+                          {forum.name}
+                        </span>
+                        {forum.isCustom && isDeveloper && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm(`Delete forum "${forum.name}"?`)) return;
+                              await deleteDoc(doc(db, 'forumTopics', forum.firestoreId));
+                            }}
+                            className="text-[9px] font-mono text-zinc-700 hover:text-red-400 transition">
+                            del
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-mono text-zinc-600 mt-0.5 leading-snug line-clamp-1">
+                        {forum.desc || `Discuss ${forum.name.toLowerCase()}.`}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Middle: thread/message counts */}
+                  <div className="hidden md:flex items-center gap-6 px-4 border-l border-zinc-800/60 flex-shrink-0">
+                    <div className="text-center w-14">
+                      <div className="text-sm font-mono font-bold text-zinc-300">{threadCount}</div>
+                      <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Threads</div>
+                    </div>
+                    <div className="text-center w-14">
+                      <div className="text-sm font-mono font-bold text-zinc-300">{messageCount}</div>
+                      <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Messages</div>
+                    </div>
+                  </div>
+                  {/* Right: latest thread preview */}
+                  <div className="hidden sm:flex flex-col justify-center px-4 py-3 min-w-0 w-64 border-l border-zinc-800/60 flex-shrink-0">
+                    {latestThread ? (
+                      <>
+                        <p className="text-xs font-mono text-zinc-300 truncate leading-snug">
+                          {latestThread.title}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Avatar
+                            src={authorAvatarCache[latestThread.authorUid] || latestThread.authorAvatar}
+                            username={latestThread.author}
+                            size={14}
+                          />
+                          <span className="text-[10px] font-mono text-emerald-500 truncate">{latestThread.author}</span>
+                          <span className="text-[10px] font-mono text-zinc-600 flex-shrink-0">{latestThread.date}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-mono text-zinc-700">No threads yet</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </>
+  ), [threads, customForums, authorAvatarCache, isDeveloper]);
 
   // ── ThreadView ────────────────────────────────────────────────────────────
   const ThreadView = useCallback(() => {
@@ -1437,6 +1561,43 @@ export default function AscendMaxx() {
     const devOnline = devMember ? presenceMap[devMember.uid] : false;
     return (
       <div className="p-4 space-y-5">
+        {threads.length > 0 && (
+          <div className="border border-zinc-800 bg-zinc-900/40 p-4">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-3">Latest Posts</div>
+            <div className="space-y-3">
+              {threads.slice(0, 5).map(t => (
+                <button key={`lp-${t.id}`} onClick={() => setViewingThread(t)}
+                  className="w-full flex items-start gap-2 text-left hover:opacity-80 transition">
+                  <Avatar src={authorAvatarCache[t.authorUid] || t.authorAvatar} username={t.author} size={26} />
+                  <div className="min-w-0">
+                    <div className="text-xs font-mono text-zinc-200 truncate">{t.title}</div>
+                    <div className="text-[10px] font-mono text-zinc-600 truncate">
+                      <span className="text-emerald-500">{t.author}</span> · {t.date}
+                    </div>
+                    <div className="text-[9px] font-mono text-zinc-700 truncate">{t.forum}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {threads.length > 0 && (
+          <div className="border border-zinc-800 bg-zinc-900/40 p-4">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-3">Latest Threads</div>
+            <div className="space-y-2.5">
+              {threads.slice(0, 5).map(t => (
+                <button key={`lt-${t.id}`} onClick={() => setViewingThread(t)}
+                  className="w-full text-left hover:opacity-80 transition block">
+                  <div className="text-xs font-mono text-zinc-200 truncate">{t.title}</div>
+                  <div className="text-[10px] font-mono text-zinc-600 truncate">
+                    Started by <span className="text-emerald-500">{t.author}</span> · {t.replies || 0} {t.replies === 1 ? 'reply' : 'replies'}
+                  </div>
+                  <div className="text-[9px] font-mono text-zinc-700 truncate">{t.forum}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="border border-zinc-800 bg-zinc-900/40 p-4">
           <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-3">Statistics</div>
           <div className="space-y-2">
@@ -1483,7 +1644,7 @@ export default function AscendMaxx() {
         )}
       </div>
     );
-  }, [staffMembers, presenceMap, totalUsers, onlineCount, threads.length, latestUser, openProfile]);
+  }, [staffMembers, presenceMap, totalUsers, onlineCount, threads, latestUser, openProfile, authorAvatarCache]);
 
   // ── SidebarContent ────────────────────────────────────────────────────────
   const SidebarContent = useCallback(() => (
@@ -1734,7 +1895,7 @@ export default function AscendMaxx() {
           {currentView === 'home' && !viewingThread && (
             <div>
               <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                <h1 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Latest Posts</h1>
+                <h1 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Forums</h1>
                 <div className="flex items-center gap-2">
                   {isDeveloper && !isAnnouncementDeleted && (
                     <button onClick={() => { setAnnDraft({ title: siteAnnouncement.title, description: siteAnnouncement.description }); setEditingAnnouncement(true); }}
@@ -1754,12 +1915,8 @@ export default function AscendMaxx() {
               {!isAnnouncementDeleted && <ThreadCard thread={siteAnnouncement} isAnnouncement />}
               {pinnedThreads.map(t => <ThreadCard key={t.id} thread={t} />)}
               {threadsLoading ? (
-                <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
-              ) : threads.filter(t => !pinnedIds.includes(t.id)).length === 0 ? (
-                <div className="text-center py-20 text-zinc-600 font-mono text-xs">
-                  No posts yet.{isLoggedIn ? ' Be the first.' : ' Log in to post.'}
-                </div>
-              ) : threads.filter(t => !pinnedIds.includes(t.id)).map(t => <ThreadCard key={t.id} thread={t} />)}
+                <div className="text-center py-6 text-zinc-600 font-mono text-xs">Loading...</div>
+              ) : renderForumIndex()}
             </div>
           )}
 
@@ -1770,107 +1927,108 @@ export default function AscendMaxx() {
               <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                 <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Forums</h2>
               </div>
-              {forumSections.map(section => {
-                const sectionForums = [
-                  ...allForums.filter(f => f.section === section),
-                  ...customForums.filter(f => f.section === section),
-                ];
-                return (
-                  <div key={section} className="mb-1">
-                    {/* Section header */}
-                    <div className="px-4 py-2 bg-zinc-900/70 border-y border-zinc-800 flex items-center justify-between">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-zinc-400">{section}</span>
-                      {isDeveloper && (
-                        <button
-                          onClick={() => { setNewTopicSection(section); setShowNewTopicModal(true); }}
-                          className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 transition px-1"
-                          title="Add forum topic">
-                          + Add Topic
-                        </button>
-                      )}
-                    </div>
-                    {/* Forum rows */}
-                    {sectionForums.map(forum => {
-                      const forumThreads = threads.filter(t => t.forumId === forum.id);
-                      const latestThread = forumThreads[0] || null;
-                      const threadCount = forumThreads.length;
-                      const replyCount = forumThreads.reduce((sum: number, t: any) => sum + (t.replies || 0), 0);
-                      return (
-                        <div key={forum.id}
-                          onClick={() => setSelectedForum(forum)}
-                          className="flex items-stretch border-b border-zinc-800 hover:bg-zinc-900/50 cursor-pointer transition-colors group">
-                          {/* Left: forum name + description */}
-                          <div className="flex-1 min-w-0 px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-mono font-semibold text-zinc-100 group-hover:text-emerald-400 transition-colors">
-                                {forum.name}
-                              </span>
-                              {forum.isCustom && isDeveloper && (
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (!confirm(`Delete forum "${forum.name}"?`)) return;
-                                    await deleteDoc(doc(db, 'forumTopics', forum.firestoreId));
-                                  }}
-                                  className="text-[9px] font-mono text-zinc-700 hover:text-red-400 transition">
-                                  del
-                                </button>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-[10px] font-mono text-zinc-600">{threadCount} threads</span>
-                              <span className="text-[10px] font-mono text-zinc-600">{replyCount} replies</span>
-                            </div>
-                          </div>
-                          {/* Right: latest thread */}
-                          <div className="hidden sm:flex flex-col justify-center px-4 py-3 min-w-0 w-64 border-l border-zinc-800/60">
-                            {latestThread ? (
-                              <>
-                                <p className="text-xs font-mono text-zinc-300 truncate leading-snug">
-                                  {latestThread.title}
-                                </p>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                  <Avatar
-                                    src={authorAvatarCache[latestThread.authorUid] || latestThread.authorAvatar}
-                                    username={latestThread.author}
-                                    size={14}
-                                  />
-                                  <span className="text-[10px] font-mono text-emerald-500 truncate">{latestThread.author}</span>
-                                  <span className="text-[10px] font-mono text-zinc-600 flex-shrink-0">{latestThread.date}</span>
-                                </div>
-                              </>
-                            ) : (
-                              <span className="text-[10px] font-mono text-zinc-700">No threads yet</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+              {threadsLoading
+                ? <div className="text-center py-6 text-zinc-600 font-mono text-xs">Loading...</div>
+                : renderForumIndex()}
             </div>
           )}
 
-          {currentView === 'forums' && selectedForum && !viewingThread && (
-            <div>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                <div>
-                  <button className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 uppercase tracking-widest mb-0.5 block" onClick={() => setSelectedForum(null)}>Forums /</button>
-                  <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">{selectedForum.name}</h2>
+          {currentView === 'forums' && selectedForum && !viewingThread && (() => {
+            const PAGE_SIZE = 15;
+            const totalPages = Math.max(1, Math.ceil(visibleThreads.length / PAGE_SIZE));
+            const page = Math.min(forumPage, totalPages);
+            const pageThreads = visibleThreads.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+            const pageNumbers: (number | '...')[] = [];
+            for (let i = 1; i <= totalPages; i++) {
+              if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) pageNumbers.push(i);
+              else if (pageNumbers[pageNumbers.length - 1] !== '...') pageNumbers.push('...');
+            }
+
+            return (
+              <div>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+                  <div>
+                    <button className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 uppercase tracking-widest mb-0.5 block" onClick={() => setSelectedForum(null)}>Forums /</button>
+                    <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">{selectedForum.name}</h2>
+                  </div>
+                  {isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && (
+                    <button onClick={() => setShowNewThreadModal(true)} className={btnPrimary}>+ New Thread</button>
+                  )}
                 </div>
-                {isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && (
-                  <button onClick={() => setShowNewThreadModal(true)} className={btnPrimary}>+ New Thread</button>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-800/60 text-xs font-mono flex-wrap">
+                    {pageNumbers.map((n, i) => n === '...' ? (
+                      <span key={`ellipsis-${i}`} className="px-1.5 text-zinc-600">...</span>
+                    ) : (
+                      <button key={n} onClick={() => setForumPage(n as number)}
+                        className={`px-2.5 py-1 border ${page === n ? 'border-emerald-600 text-emerald-400' : 'border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-600'}`}>
+                        {n}
+                      </button>
+                    ))}
+                    {page < totalPages && (
+                      <button onClick={() => setForumPage(page + 1)}
+                        className="px-2.5 py-1 border border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-600 ml-1">
+                        Next ›
+                      </button>
+                    )}
+                  </div>
                 )}
+
+                {threadsLoading ? (
+                  <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
+                ) : visibleThreads.length === 0 ? (
+                  <div className="text-center py-20 text-zinc-600 font-mono text-xs">No threads yet.{isLoggedIn && (selectedForum.id !== 2 || isDeveloper) ? ' Start one.' : ''}</div>
+                ) : pageThreads.map(t => {
+                  const isPinned = pinnedIds.includes(t.id);
+                  return (
+                    <div key={t.id} onClick={() => setViewingThread(t)}
+                      className={`flex items-center gap-3 border-b border-zinc-800 px-4 py-2.5 hover:bg-zinc-900/50 cursor-pointer transition-colors ${isPinned ? 'bg-zinc-900/30 border-l-2 border-l-yellow-600' : ''}`}>
+                      <button onClick={(e) => { e.stopPropagation(); openProfile(t.author); }} className="flex-shrink-0">
+                        <Avatar src={authorAvatarCache[t.authorUid] || t.authorAvatar} username={t.author} size={36} />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isPinned && <span className="text-[9px] font-mono uppercase tracking-widest text-yellow-500 flex-shrink-0">Pinned</span>}
+                          {t.tag && (
+                            <span
+                              className="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-white flex-shrink-0"
+                              style={{ backgroundColor: t.tagColor || '#6366f1' }}>
+                              {t.tag}
+                            </span>
+                          )}
+                          <span className={`text-sm font-mono font-semibold truncate ${isPinned ? 'text-yellow-400' : 'text-zinc-100'}`}>{t.title}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] font-mono text-emerald-500">{t.author}</span>
+                          <span className="text-[10px] font-mono text-zinc-600">· {t.date}</span>
+                        </div>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-5 flex-shrink-0">
+                        <div className="text-center w-12">
+                          <div className="text-xs font-mono font-bold text-zinc-300">{t.replies || 0}</div>
+                          <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Replies</div>
+                        </div>
+                        <div className="text-center w-12">
+                          <div className="text-xs font-mono font-bold text-zinc-300">{t.views || 1}</div>
+                          <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Views</div>
+                        </div>
+                      </div>
+                      {isDeveloper && (
+                        <div className="flex-shrink-0 flex flex-col items-end gap-1" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => togglePin(t.id)} className={`text-[9px] font-mono ${isPinned ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
+                            {isPinned ? 'unpin' : 'pin'}
+                          </button>
+                          <button onClick={() => deleteThread(t.id)} className="text-[9px] font-mono text-zinc-600 hover:text-red-400">del</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              {threadsLoading
-                ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
-                : visibleThreads.length === 0
-                  ? <div className="text-center py-20 text-zinc-600 font-mono text-xs">No threads yet.{isLoggedIn && (selectedForum.id !== 2 || isDeveloper) ? ' Start one.' : ''}</div>
-                  : visibleThreads.map(t => <ThreadCard key={t.id} thread={t} largePfp />)
-              }
-            </div>
-          )}
+            );
+          })()}
 
           {currentView === 'members' && (
             <div>
