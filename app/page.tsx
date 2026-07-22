@@ -28,9 +28,28 @@ const allForums = [
   { id: 8,  section: 'Biohacking',   name: 'Cognitive improvement', desc: 'Nootropics, focus, sleep, and optimizing brain performance.' },
   { id: 9,  section: 'Moneymaxxing', name: 'Moneymaxxing',          desc: 'Building wealth, careers, and financial self-improvement.' },
   { id: 10, section: 'Larpmaxxing',  name: 'Larpmaxxing',           desc: 'Off-beat and joke threads. Take everything here with a grain of salt.' },
+
+  // ── Added sections/topics ──────────────────────────────────────────────
+  { id: 11, section: 'Information',  name: 'News & Announcements', desc: 'Stay up to date with the latest news, updates, and important announcements from staff.' },
+
+  { id: 12, section: 'Nutrition',    name: 'Nutrition & Diet',      desc: 'Discuss everything related to food, diets, macros, meal planning, and eating for optimal health.' },
+  { id: 13, section: 'Nutrition',    name: 'Supplements & Vitamins', desc: 'Share and discuss supplements, vitamins, minerals, and their effects on health and performance.' },
+  { id: 14, section: 'Nutrition',    name: 'Blood Work & Labs',     desc: 'Discuss lab results, biomarkers, hormones, and how to interpret and optimize your health panels.' },
+  { id: 15, section: 'Nutrition',    name: 'Food Reviews',          desc: 'Review and rate foods, restaurants, products, and anything else worth eating or avoiding.' },
+
+  { id: 16, section: 'Physical',     name: 'Fitness & Training',    desc: 'Everything related to working out, building muscle, losing fat, and physical performance.' },
+  { id: 17, section: 'Physical',     name: 'Skincare & Hair',       desc: 'Discuss skincare routines, hair health, grooming, and looking your best.' },
+
+  { id: 18, section: 'Discussion',   name: 'Health Research & Facts', desc: 'Discuss studies, research, and science backed health information.' },
+  { id: 19, section: 'Discussion',   name: 'Guides & Resources',    desc: 'Community guides, tutorials, and resources on health and nutrition topics.' },
+
+  { id: 20, section: 'Off topic',    name: 'Venting & Stories',     desc: 'Need to get something off your chest? Come make a thread here to talk freely about your personal stories.' },
+
+  { id: 21, section: 'Other',        name: 'Ban Appeals',           desc: 'Where users appeal for the mistakes they have done, and get a public response from moderators.' },
+  { id: 22, section: 'Other',        name: 'Suggestions',           desc: 'Suggest features to improve the forum.' },
 ];
 
-const forumSections = ['Important','Off topic','Looksmaxxing','Biohacking','Moneymaxxing','Larpmaxxing'];
+const forumSections = ['Important','Off topic','Looksmaxxing','Biohacking','Moneymaxxing','Larpmaxxing','Information','Nutrition','Physical','Discussion','Other'];
 
 const sectionDescriptions: Record<string, string> = {
   'Important':    'Official updates, rule changes, and site news from staff. Read before you post anywhere else.',
@@ -39,6 +58,11 @@ const sectionDescriptions: Record<string, string> = {
   'Biohacking':   'Optimizing the body and mind through habits, supplements, and routines.',
   'Moneymaxxing': 'Building wealth, careers, and financial self-improvement.',
   'Larpmaxxing':  'Off-beat and joke threads. Take everything here with a grain of salt.',
+  'Information':  'Official updates, rule changes, and site news from staff. Read before you post anywhere else.',
+  'Nutrition':    'Everything related to food, diet, and what you\u2019re putting into your body.',
+  'Physical':     'Training, aesthetics, and the physical side of self-improvement.',
+  'Discussion':   'Research, guides, and anything that doesn\u2019t fit neatly under Nutrition or Physical.',
+  'Other':        'Miscellaneous topics that have to do with users being banned and appealing, and suggestions for the site.',
 };
 
 const THREADMAXXER_COLORS = [
@@ -117,11 +141,161 @@ function Avatar({ src, username, size = 32 }: { src?: string; username: string; 
   );
 }
 
+// ── Monoline icon set, one per forum topic. No background/border — just a stroked glyph. ──
+const FORUM_ICON_PATHS: Record<string, React.ReactNode> = {
+  'Rules': (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+      <path d="M9.5 12l2 2 3.5-4" />
+    </>
+  ),
+  'Announcements': (
+    <>
+      <path d="M3 10v4a1 1 0 001 1h2l3 4V5L6 9H4a1 1 0 00-1 1z" />
+      <path d="M11 8.5a4 4 0 010 7" />
+      <path d="M14.5 6a7.5 7.5 0 010 12" />
+    </>
+  ),
+  'News & Announcements': (
+    <>
+      <path d="M3 10v4a1 1 0 001 1h2l3 4V5L6 9H4a1 1 0 00-1 1z" />
+      <path d="M11 8.5a4 4 0 010 7" />
+      <path d="M14.5 6a7.5 7.5 0 010 12" />
+    </>
+  ),
+  'Lounge': (
+    <>
+      <path d="M4 18v-4a2 2 0 012-2h12a2 2 0 012 2v4" />
+      <path d="M4 15v-1.5A1.5 1.5 0 015.5 12h13A1.5 1.5 0 0120 13.5V15" />
+      <path d="M5 18v2M19 18v2" />
+    </>
+  ),
+  'Music': (
+    <>
+      <circle cx="7" cy="18" r="2.2" />
+      <circle cx="17" cy="16" r="2.2" />
+      <path d="M9.2 18V6.5L19.2 4v11.5" />
+    </>
+  ),
+  'Media': (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="14" rx="1.5" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="M3.5 15.5l4.5-4 3 3 4-5 5.5 6" />
+    </>
+  ),
+  'Rate Me': (
+    <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.2 1 5.9L12 17l-5.2 2.8 1-5.9-4.3-4.2 5.9-.8L12 3.5z" />
+  ),
+  'Looksmaxxing': (
+    <>
+      <path d="M12 3c-4 0-6.5 3-6.5 7 0 5 3 8.5 6.5 10 3.5-1.5 6.5-5 6.5-10 0-4-2.5-7-6.5-7z" />
+      <path d="M9.5 11l.01.01M14.5 11l.01.01" />
+      <path d="M18 8l1.5-.5L18 6M6 8L4.5 7.5 6 6" />
+    </>
+  ),
+  'Cognitive improvement': (
+    <>
+      <path d="M9 4a4 4 0 00-4 4c0 1 .3 1.7.8 2.3A3.3 3.3 0 004 13.5 3.5 3.5 0 007.5 17H9" />
+      <path d="M15 4a4 4 0 014 4c0 1-.3 1.7-.8 2.3A3.3 3.3 0 0120 13.5a3.5 3.5 0 01-3.5 3.5H15" />
+      <path d="M9 4v13a2 2 0 004 0V4" />
+      <path d="M9 8.5h4M9 12.5h4" />
+    </>
+  ),
+  'Moneymaxxing': (
+    <>
+      <path d="M4 16l4.5-5 3.5 3.5L19 6" />
+      <path d="M14 6h5v5" />
+    </>
+  ),
+  'Larpmaxxing': (
+    <>
+      <path d="M8.5 10.5a3.5 3.5 0 117 0c0 2-1.5 2.7-1.5 4.5H10c0-1.8-1.5-2.5-1.5-4.5z" />
+      <path d="M10 17.5h4" />
+      <path d="M12 3v1.5M4.5 8.5H6M18 8.5h1.5M6.5 4.5l1 1.2M17.5 4.5l-1 1.2" />
+    </>
+  ),
+  'Nutrition & Diet': (
+    <>
+      <path d="M12 8c-3.5 0-6 3-6 6.5 0 3 1.7 5.5 3.3 5.5.9 0 1.2-.5 2.7-.5s1.8.5 2.7.5c1.6 0 3.3-2.5 3.3-5.5C18 11 15.5 8 12 8z" />
+      <path d="M12 8c0-1.5.8-2.7 2.2-3.3" />
+      <path d="M10.5 6.5c.6-1 .5-2 .1-3" />
+    </>
+  ),
+  'Supplements & Vitamins': (
+    <>
+      <rect x="4" y="10.5" width="16" height="7" rx="3.5" transform="rotate(-20 12 14)" />
+      <path d="M9.5 12.2l4.7 3.7" />
+    </>
+  ),
+  'Blood Work & Labs': (
+    <>
+      <path d="M9 3h6M10 3v4.5L6 15a3 3 0 003 4.5h6a3 3 0 003-4.5L14 7.5V3" />
+      <path d="M8.5 14.5h7" />
+    </>
+  ),
+  'Food Reviews': (
+    <>
+      <path d="M6 3v7a2 2 0 002 2v9M6 3v9M8 3v9" />
+      <path d="M16 3c-1.4 0-2.5 1.6-2.5 4.5S14.6 12 16 12v9" />
+    </>
+  ),
+  'Fitness & Training': (
+    <>
+      <path d="M5 9v6M19 9v6" />
+      <path d="M3 12h2M19 12h2" />
+      <path d="M7 7v10M17 7v10" />
+      <path d="M7 12h10" />
+    </>
+  ),
+  'Skincare & Hair': (
+    <>
+      <path d="M12 3.5c3 3 5.5 6.6 5.5 9.8a5.5 5.5 0 11-11 0c0-3.2 2.5-6.8 5.5-9.8z" />
+    </>
+  ),
+  'Health Research & Facts': (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5" />
+    </>
+  ),
+  'Guides & Resources': (
+    <>
+      <path d="M4 5.5A1.5 1.5 0 015.5 4H11v16H5.5A1.5 1.5 0 014 18.5v-13z" />
+      <path d="M20 5.5A1.5 1.5 0 0018.5 4H13v16h5.5a1.5 1.5 0 001.5-1.5v-13z" />
+    </>
+  ),
+  'Venting & Stories': (
+    <>
+      <path d="M4 5.5A1.5 1.5 0 015.5 4h13A1.5 1.5 0 0120 5.5v8a1.5 1.5 0 01-1.5 1.5H9l-4 4v-4H5.5A1.5 1.5 0 014 13.5v-8z" />
+      <path d="M12 7.5v3.5M12 13.2v.01" />
+    </>
+  ),
+  'Ban Appeals': (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+      <path d="M9.5 9.5l5 5M14.5 9.5l-5 5" />
+    </>
+  ),
+  'Suggestions': (
+    <>
+      <path d="M9 18h6" />
+      <path d="M8 14.5a4.5 4.5 0 118 0c0 1.5-1 2-1.5 3H9.5c-.5-1-1.5-1.5-1.5-3z" />
+      <path d="M12 3v1.5M4.5 8h1.5M18 8h1.5M6.5 4.5l1 1M17.5 4.5l-1 1" />
+    </>
+  ),
+};
+
 function ForumIcon({ name }: { name: string }) {
-  const initial = name ? name.trim().slice(0, 1).toUpperCase() : '?';
+  const paths = FORUM_ICON_PATHS[name] ?? (
+    <circle cx="12" cy="12" r="7.5" />
+  );
   return (
-    <div className="w-9 h-9 flex-shrink-0 border border-zinc-700 bg-zinc-900 flex items-center justify-center font-mono text-sm text-zinc-500">
-      {initial}
+    <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center text-zinc-500">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
+        strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+        {paths}
+      </svg>
     </div>
   );
 }
@@ -221,7 +395,6 @@ export default function AscendMaxx() {
 
   const [currentView, setCurrentView]     = useState<View>('home');
   const [selectedForum, setSelectedForum] = useState<any>(null);
-  const [sidebarOpen, setSidebarOpen]     = useState(false);
 
   const [aboutText, setAboutText]   = useState('AscendMaxx is a self-improvement community focused on looksmaxxing, cognitive enhancement, and total life ascension.');
   const [editingAbout, setEditingAbout] = useState(false);
@@ -1646,32 +1819,6 @@ export default function AscendMaxx() {
     );
   }, [staffMembers, presenceMap, totalUsers, onlineCount, threads, latestUser, openProfile, authorAvatarCache]);
 
-  // ── SidebarContent ────────────────────────────────────────────────────────
-  const SidebarContent = useCallback(() => (
-    <div>
-      <div className="px-3 py-2 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-zinc-800">Forums</div>
-      {forumSections.map(section => {
-        const sectionForums = [
-          ...allForums.filter(f => f.section === section),
-          ...customForums.filter(f => f.section === section),
-        ];
-        return (
-          <div key={section}>
-            <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-zinc-600 bg-zinc-900/50">{section}</div>
-            {sectionForums.map(f => (
-              <div key={f.id ?? f.firestoreId}
-                onClick={() => { setSelectedForum(f); setCurrentView('forums'); setSidebarOpen(false); setViewingThread(null); }}
-                className={`px-4 py-2 text-sm cursor-pointer hover:bg-zinc-800 border-b border-zinc-800/50 transition-colors ${selectedForum?.id === f.id ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-300'}`}>
-                {f.name}
-              </div>
-            ))}
-          </div>
-        );
-      })}
-      <div className="lg:hidden border-t border-zinc-800 mt-2">{StatsPanel()}</div>
-    </div>
-  ), [selectedForum, StatsPanel, customForums]);
-
   // ── DmPanel ───────────────────────────────────────────────────────────────
   const DmPanel = useCallback(() => (
     <div className="fixed bottom-14 sm:bottom-16 right-4 sm:right-6 w-80 sm:w-96 bg-zinc-950 border border-zinc-800 shadow-2xl z-[200] flex flex-col" style={{ maxHeight: '70vh' }}>
@@ -1782,45 +1929,36 @@ export default function AscendMaxx() {
   return (
     <div className="min-h-screen text-zinc-200 font-sans" style={{ backgroundColor: activeBg }}>
 
-      {sidebarOpen && <div className="fixed inset-0 bg-black/70 z-[60] lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <div className={`fixed top-0 left-0 h-full w-64 bg-zinc-950 border-r border-zinc-800 z-[70] overflow-y-auto transform transition-transform duration-200 lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{ scrollbarWidth: 'none' }}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <span className="text-emerald-500 font-mono font-bold text-sm tracking-widest">ASCENDMAXX</span>
-          <button onClick={() => setSidebarOpen(false)} className="text-zinc-500 hover:text-zinc-200 text-lg font-mono">x</button>
-        </div>
-        {SidebarContent()}
-      </div>
-
-      <nav className="bg-zinc-950 border-b border-zinc-800 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-11 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-zinc-500 hover:text-zinc-200 font-mono text-sm flex-shrink-0">≡</button>
-
-            {/* Logo — image if set, otherwise text fallback */}
-            <div
-              className="flex-shrink-0 cursor-pointer flex items-center"
-              onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }}>
-              {siteLogoUrl ? (
-                <img
-                  src={siteLogoUrl}
-                  alt="Logo"
-                  style={{ height: siteLogoSize, width: 'auto' }}
-                  className="object-contain"
-                />
-              ) : (
-                <span className="text-emerald-500 font-mono font-bold tracking-widest text-sm">ASCENDMAXX</span>
-              )}
-            </div>
-            {isDeveloper && (
-              <button
-                onClick={() => { setLogoUrlDraft(siteLogoUrl); setLogoSizeDraft(siteLogoSize); setEditingLogo(true); }}
-                className="hidden sm:block text-[9px] font-mono text-zinc-700 hover:text-zinc-400 transition flex-shrink-0">
-                {siteLogoUrl ? 'edit logo' : 'add logo'}
-              </button>
+      <header className="bg-zinc-950 border-b border-zinc-800 sticky top-0 z-50">
+        {/* ── Logo row — large wordmark/image, its own row ─────────────────── */}
+        <div className="max-w-7xl mx-auto px-4 pt-4 pb-3 flex items-center justify-between gap-4">
+          <div
+            className="cursor-pointer flex items-center gap-3"
+            onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }}>
+            {siteLogoUrl ? (
+              <img
+                src={siteLogoUrl}
+                alt="Logo"
+                style={{ height: Math.max(siteLogoSize, 40), width: 'auto' }}
+                className="object-contain"
+              />
+            ) : (
+              <span className="text-emerald-500 font-mono font-bold tracking-widest text-2xl sm:text-3xl">ASCENDMAXX</span>
             )}
+          </div>
+          {isDeveloper && (
+            <button
+              onClick={() => { setLogoUrlDraft(siteLogoUrl); setLogoSizeDraft(siteLogoSize); setEditingLogo(true); }}
+              className="text-[9px] font-mono text-zinc-700 hover:text-zinc-400 transition flex-shrink-0">
+              {siteLogoUrl ? 'edit logo' : 'add logo'}
+            </button>
+          )}
+        </div>
 
-            {/* Desktop nav tabs */}
-            <div className="hidden sm:flex items-center gap-0.5 text-xs font-mono overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        {/* ── Nav bar — tabs on the left, search & auth on the right ───────── */}
+        <nav className="border-t border-zinc-800">
+          <div className="max-w-7xl mx-auto px-4 h-11 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-0.5 text-xs font-mono overflow-x-auto min-w-0" style={{ scrollbarWidth: 'none' }}>
               {(['Home','Forums','Members','About','Stickers'] as const).map(v => (
                 <button key={v}
                   onClick={() => {
@@ -1844,52 +1982,48 @@ export default function AscendMaxx() {
                 </button>
               )}
             </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <input type="text" placeholder="Search..."
+                className="hidden md:block bg-zinc-900 border border-zinc-800 px-3 py-1.5 text-xs font-mono w-36 focus:outline-none focus:border-emerald-600 text-zinc-300 placeholder-zinc-600" />
+              {isLoggedIn && (
+                <button onClick={() => setShowDmPanel(v => !v)}
+                  className="relative text-zinc-500 hover:text-zinc-200 text-xs font-mono px-2 py-1.5 transition-colors">
+                  DM
+                  {dmUnread > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-emerald-500 text-black text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                      {dmUnread}
+                    </span>
+                  )}
+                </button>
+              )}
+              {!isLoggedIn ? (
+                <>
+                  <button onClick={() => setShowLogin(true)}
+                    className="text-xs font-mono px-3 py-1.5 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white transition-colors">
+                    Log in
+                  </button>
+                  <button onClick={() => setShowRegister(true)}
+                    className="text-xs font-mono px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold transition-colors">
+                    Register
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => openProfile(currentUser)} className="flex items-center gap-1.5 hover:opacity-80 transition">
+                    <Avatar src={currentUserData?.avatar} username={currentUser} size={22} />
+                    <span className="text-emerald-400 font-mono text-xs hidden sm:block truncate max-w-[80px]">{currentUser}</span>
+                  </button>
+                  <button onClick={logout} className="text-zinc-600 text-xs font-mono hover:text-zinc-300 transition-colors">logout</button>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input type="text" placeholder="Search..."
-              className="hidden md:block bg-zinc-900 border border-zinc-800 px-3 py-1.5 text-xs font-mono w-36 focus:outline-none focus:border-emerald-600 text-zinc-300 placeholder-zinc-600" />
-            {isLoggedIn && (
-              <button onClick={() => setShowDmPanel(v => !v)}
-                className="relative text-zinc-500 hover:text-zinc-200 text-xs font-mono px-2 py-1.5 transition-colors">
-                DM
-                {dmUnread > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-emerald-500 text-black text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
-                    {dmUnread}
-                  </span>
-                )}
-              </button>
-            )}
-            {!isLoggedIn ? (
-              <>
-                <button onClick={() => setShowLogin(true)}
-                  className="text-xs font-mono px-3 py-1.5 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white transition-colors">
-                  Log in
-                </button>
-                <button onClick={() => setShowRegister(true)}
-                  className="text-xs font-mono px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold transition-colors">
-                  Register
-                </button>
-              </>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button onClick={() => openProfile(currentUser)} className="flex items-center gap-1.5 hover:opacity-80 transition">
-                  <Avatar src={currentUserData?.avatar} username={currentUser} size={22} />
-                  <span className="text-emerald-400 font-mono text-xs hidden sm:block truncate max-w-[80px]">{currentUser}</span>
-                </button>
-                <button onClick={logout} className="text-zinc-600 text-xs font-mono hover:text-zinc-300 transition-colors">logout</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
+        </nav>
+      </header>
 
       {showDmPanel && isLoggedIn && DmPanel()}
 
       <div className="max-w-7xl mx-auto flex">
-        <div className="hidden lg:block w-48 flex-shrink-0 border-r border-zinc-800 min-h-screen sticky top-11 h-[calc(100vh-2.75rem)] overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-          {SidebarContent()}
-        </div>
-
         <div className="flex-1 min-w-0">
 
           {currentView === 'home' && !viewingThread && (
