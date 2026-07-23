@@ -482,7 +482,6 @@ export default function AscendMaxx() {
 
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showMobileLatest, setShowMobileLatest] = useState(false);
-  const [mobileSidebarPeek, setMobileSidebarPeek] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [activeBg, setActiveBg]               = useState('#0d0d0d');
   const themes = [
@@ -594,12 +593,6 @@ export default function AscendMaxx() {
       setAuthLoading(false);
     });
     return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    const onScroll = () => setMobileSidebarPeek(window.scrollY > 220);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -2153,13 +2146,11 @@ export default function AscendMaxx() {
 
       {showDmPanel && isLoggedIn && DmPanel()}
 
-      {/* ── MOBILE SIDEBAR PEEK — collapsed by default, slides into view once the user scrolls down, since the sidebar itself is hidden below lg ── */}
+      {/* ── MOBILE SIDEBAR TAB — always visible below lg, since the sidebar itself is hidden there ── */}
       <button
         onClick={() => setShowMobileLatest(true)}
         aria-label="Show sidebar"
-        className={`lg:hidden fixed right-4 z-40 bg-zinc-950 border border-zinc-800 hover:border-emerald-700 px-3 py-2 flex items-center gap-2 shadow-lg transition-all duration-300 ${
-          mobileSidebarPeek ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
-        }`}
+        className="lg:hidden fixed right-4 z-40 bg-zinc-950 border border-zinc-800 hover:border-emerald-700 px-3 py-2 flex items-center gap-2 shadow-lg transition-colors"
         style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}>
         <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">Sidebar</span>
         <span className="text-emerald-500 text-xs">▲</span>
