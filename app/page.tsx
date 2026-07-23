@@ -1571,15 +1571,26 @@ export default function AscendMaxx() {
                     <div className="hidden sm:flex flex-col justify-center px-4 py-3 min-w-0 w-64 border-l border-zinc-800/60 flex-shrink-0">
                       {latestThread ? (
                         <>
-                          <p className="text-xs font-mono text-zinc-300 truncate leading-snug">
-                            {latestThread.title}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-1">
+                          <div className="flex items-center gap-2">
                             <Avatar
                               src={authorAvatarCache[latestThread.authorUid] || latestThread.authorAvatar}
                               username={latestThread.author}
-                              size={14}
+                              size={30}
                             />
+                            <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                              {latestThread.tag && (
+                                <span
+                                  className="inline-block px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider text-white flex-shrink-0"
+                                  style={{ backgroundColor: latestThread.tagColor || '#6366f1' }}>
+                                  {latestThread.tag}
+                                </span>
+                              )}
+                              <p className="text-xs font-mono text-zinc-300 truncate leading-snug">
+                                {latestThread.title}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1 pl-[38px]">
                             <span className="text-[10px] font-mono text-emerald-500 truncate">{latestThread.author}</span>
                             <span className="text-[10px] font-mono text-zinc-600 flex-shrink-0">{latestThread.date}</span>
                           </div>
