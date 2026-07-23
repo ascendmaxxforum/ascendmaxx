@@ -81,11 +81,8 @@ const THREADMAXXER_COLORS = [
 // ── CHANGE 1: All rank labels now UPPERCASE, fixed label names ───────────────
 function getRank(total: number): { label: string; isThreadmaxxer: boolean } {
   if (total >= 200) return { label: 'THREADMAXXER', isThreadmaxxer: true };
-  if (total >= 150) return { label: 'GREY',         isThreadmaxxer: false };
-  if (total >= 100) return { label: 'GREY+',        isThreadmaxxer: false };
-  if (total >= 50)  return { label: 'GREY++',       isThreadmaxxer: false };
-  if (total >= 20)  return { label: 'GREY+++',      isThreadmaxxer: false };
-  return               { label: 'GREY+++',           isThreadmaxxer: false };
+  if (total >= 5)   return { label: 'BLUE',          isThreadmaxxer: false };
+  return               { label: 'GREY',              isThreadmaxxer: false };
 }
 
 // ── CHANGE 2: RankTag now also handles the ADMIN default for developer ───────
@@ -117,10 +114,11 @@ function RankTag({ total, color, bgColor, textColor, tagLabel, username }: {
       </span>
     );
   }
+  const isBlue = label === 'BLUE';
   return (
     <span
       className="inline-block px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest rounded-sm"
-      style={{ backgroundColor: '#3f3f46', color: '#d4d4d8' }}>
+      style={isBlue ? { backgroundColor: '#3b82f6', color: '#ffffff' } : { backgroundColor: '#3f3f46', color: '#d4d4d8' }}>
       {displayLabel}
     </span>
   );
@@ -1757,10 +1755,21 @@ export default function AscendMaxx() {
             <div className="space-y-3">
               {threads.slice(0, 5).map(t => (
                 <button key={`lp-${t.id}`} onClick={() => setViewingThread(t)}
-                  className="w-full flex items-start gap-2 text-left hover:opacity-80 transition">
-                  <Avatar src={authorAvatarCache[t.authorUid] || t.authorAvatar} username={t.author} size={26} />
-                  <div className="min-w-0">
-                    <div className="text-xs font-mono text-zinc-200 truncate">{t.title}</div>
+                  className="w-full text-left hover:opacity-80 transition block">
+                  <div className="flex items-center gap-2">
+                    <Avatar src={authorAvatarCache[t.authorUid] || t.authorAvatar} username={t.author} size={34} />
+                    <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                      {t.tag && (
+                        <span
+                          className="inline-block px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider text-white flex-shrink-0"
+                          style={{ backgroundColor: t.tagColor || '#6366f1' }}>
+                          {t.tag}
+                        </span>
+                      )}
+                      <span className="text-xs font-mono text-zinc-200 truncate">{t.title}</span>
+                    </div>
+                  </div>
+                  <div className="pl-[42px]">
                     <div className="text-[10px] font-mono text-zinc-600 truncate">
                       <span className="text-emerald-500">{t.author}</span> · {t.date}
                     </div>
@@ -1778,11 +1787,25 @@ export default function AscendMaxx() {
               {threads.slice(0, 5).map(t => (
                 <button key={`lt-${t.id}`} onClick={() => setViewingThread(t)}
                   className="w-full text-left hover:opacity-80 transition block">
-                  <div className="text-xs font-mono text-zinc-200 truncate">{t.title}</div>
-                  <div className="text-[10px] font-mono text-zinc-600 truncate">
-                    Started by <span className="text-emerald-500">{t.author}</span> · {t.replies || 0} {t.replies === 1 ? 'reply' : 'replies'}
+                  <div className="flex items-center gap-2">
+                    <Avatar src={authorAvatarCache[t.authorUid] || t.authorAvatar} username={t.author} size={34} />
+                    <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                      {t.tag && (
+                        <span
+                          className="inline-block px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider text-white flex-shrink-0"
+                          style={{ backgroundColor: t.tagColor || '#6366f1' }}>
+                          {t.tag}
+                        </span>
+                      )}
+                      <span className="text-xs font-mono text-zinc-200 truncate">{t.title}</span>
+                    </div>
                   </div>
-                  <div className="text-[9px] font-mono text-zinc-700 truncate">{t.forum}</div>
+                  <div className="pl-[42px]">
+                    <div className="text-[10px] font-mono text-zinc-600 truncate">
+                      Started by <span className="text-emerald-500">{t.author}</span> · {t.replies || 0} {t.replies === 1 ? 'reply' : 'replies'}
+                    </div>
+                    <div className="text-[9px] font-mono text-zinc-700 truncate">{t.forum}</div>
+                  </div>
                 </button>
               ))}
             </div>
