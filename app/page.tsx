@@ -1541,7 +1541,7 @@ export default function AscendMaxx() {
                             </button>
                           )}
                         </div>
-                        <p className="text-[11px] font-mono text-zinc-600 mt-0.5 leading-snug line-clamp-1">
+                        <p className="text-[11px] font-mono text-zinc-600 mt-0.5 leading-snug">
                           {forum.desc || `Discuss ${forum.name.toLowerCase()}.`}
                         </p>
                         {/* Condensed stats + latest activity — mobile only */}
