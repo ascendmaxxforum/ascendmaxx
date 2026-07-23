@@ -2491,7 +2491,7 @@ export default function AscendMaxx() {
       </div>
 
       <button onClick={() => setShowRateModal(true)}
-        className="fixed bottom-14 sm:bottom-6 right-4 sm:right-6 bg-emerald-600 hover:bg-emerald-500 text-black font-mono font-bold px-4 py-2.5 text-xs uppercase tracking-wider shadow-2xl z-50 transition-colors">
+        className="hidden sm:block fixed bottom-6 right-4 sm:right-6 bg-emerald-600 hover:bg-emerald-500 text-black font-mono font-bold px-4 py-2.5 text-xs uppercase tracking-wider shadow-2xl z-50 transition-colors">
         AI Analysis
       </button>
 
@@ -3273,6 +3273,7 @@ export default function AscendMaxx() {
             { label: 'DMs',      view: 'dms',         icon: <path d="M4 5.5A1.5 1.5 0 015.5 4h13A1.5 1.5 0 0120 5.5v8a1.5 1.5 0 01-1.5 1.5H9l-4 4v-4H5.5A1.5 1.5 0 014 13.5v-8z" /> },
             { label: 'Members',  view: 'members',     icon: <><circle cx="9" cy="8.5" r="3" /><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" /><path d="M15.5 6.5a3 3 0 010 5.8" /><path d="M16.5 14.2c2.3.4 3.8 2.2 3.8 4.8" /></> },
             { label: 'Stickers', view: 'stickers',    icon: <><circle cx="12" cy="12" r="8" /><path d="M9.5 10.2h.01M14.5 10.2h.01" /><path d="M8.5 14a4 4 0 007 0" /></> },
+            { label: 'Analysis', view: '__ai__',      icon: <><circle cx="12" cy="12" r="7.5" /><path d="M12 8v4l2.5 2.5" /></> },
             { label: 'About',    view: 'about',       icon: <><circle cx="12" cy="12" r="8" /><path d="M12 11v5.5M12 8v.01" /></> },
             { label: 'Theme',    view: '__theme__',   icon: <><circle cx="12" cy="12" r="8" /><circle cx="9" cy="10" r="1" /><circle cx="13.5" cy="8.5" r="1" /><circle cx="16" cy="12.5" r="1" /><path d="M12 4a8 8 0 000 16c1 0 1.5-.5 1.5-1.3 0-.5-.3-.8-.3-1.3 0-.7.5-1.2 1.2-1.2h1.4A3.2 3.2 0 0019 13.7C19 8 16 4 12 4z" /></> },
           ].map(({ label, view, icon }) => {
@@ -3282,6 +3283,7 @@ export default function AscendMaxx() {
                 key={view}
                 onClick={() => {
                   if (view === '__theme__') { setShowThemePicker(v => !v); return; }
+                  if (view === '__ai__') { setShowRateModal(true); return; }
                   setCurrentView(view as View);
                   if (view !== 'forums') setSelectedForum(null);
                   setViewingThread(null);
