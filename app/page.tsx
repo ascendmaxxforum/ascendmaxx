@@ -482,6 +482,7 @@ export default function AscendMaxx() {
 
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showMobileLatest, setShowMobileLatest] = useState(false);
+  const [mobileSidebarPeek, setMobileSidebarPeek] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [activeBg, setActiveBg]               = useState('#0d0d0d');
   const themes = [
@@ -593,6 +594,12 @@ export default function AscendMaxx() {
       setAuthLoading(false);
     });
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setMobileSidebarPeek(window.scrollY > 220);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -2146,6 +2153,28 @@ export default function AscendMaxx() {
 
       {showDmPanel && isLoggedIn && DmPanel()}
 
+      {/* ── MOBILE SIDEBAR PEEK — collapsed by default, slides into view once the user scrolls down, since the sidebar itself is hidden below lg ── */}
+      <button
+        onClick={() => setShowMobileLatest(true)}
+        aria-label="Show sidebar"
+        className={`lg:hidden fixed right-4 z-40 bg-zinc-950 border border-zinc-800 hover:border-emerald-700 px-3 py-2 flex items-center gap-2 shadow-lg transition-all duration-300 ${
+          mobileSidebarPeek ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
+        }`}
+        style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}>
+        <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">Sidebar</span>
+        <span className="text-emerald-500 text-xs">▲</span>
+      </button>
+
+      {showMobileLatest && (
+        <Modal onClose={() => setShowMobileLatest(false)} maxW="max-w-sm">
+          <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center sticky top-0 bg-zinc-950 z-10">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Sidebar</span>
+            <button onClick={() => setShowMobileLatest(false)} className="text-zinc-600 font-mono text-sm">x</button>
+          </div>
+          {StatsPanel()}
+        </Modal>
+      )}
+
       <div className="max-w-7xl mx-auto flex">
         <div className="flex-1 min-w-0 lg:pl-6 xl:pl-10">
 
@@ -2183,26 +2212,11 @@ export default function AscendMaxx() {
             <div>
               <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                 <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Forums</h2>
-                <button onClick={() => setShowMobileLatest(true)}
-                  className="lg:hidden text-[10px] font-mono text-zinc-500 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2.5 py-1.5 uppercase tracking-widest transition-colors">
-                  Latest Threads
-                </button>
               </div>
               {threadsLoading
                 ? <div className="text-center py-6 text-zinc-600 font-mono text-xs">Loading...</div>
                 : renderForumIndex()}
             </div>
-          )}
-
-          {/* ── MOBILE LATEST THREADS PANEL — same info as the desktop sidebar, since it isn't shown below lg ── */}
-          {showMobileLatest && (
-            <Modal onClose={() => setShowMobileLatest(false)} maxW="max-w-sm">
-              <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center sticky top-0 bg-zinc-950 z-10">
-                <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Latest Threads</span>
-                <button onClick={() => setShowMobileLatest(false)} className="text-zinc-600 font-mono text-sm">x</button>
-              </div>
-              {StatsPanel()}
-            </Modal>
           )}
 
           {currentView === 'forums' && selectedForum && !viewingThread && (() => {
