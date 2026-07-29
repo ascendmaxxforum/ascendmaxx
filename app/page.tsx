@@ -425,7 +425,7 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
 });
 
 export default function AscendMaxx() {
-  type View = 'home' | 'forums' | 'about' | 'dms' | 'members' | 'stickers';
+  type View = 'home' | 'forums' | 'about' | 'dms' | 'members' | 'stickers' | 'trash';
 
   const [currentView, setCurrentView]     = useState<View>('home');
   const [selectedForum, setSelectedForum] = useState<any>(null);
@@ -652,6 +652,21 @@ export default function AscendMaxx() {
     );
     return () => unsub();
   }, []);
+
+  // ── Trash (dev-only) — soft-deleted threads/replies, so a bad mod's ───────
+  // deletions can be reviewed and restored instead of being gone for good.
+  const [deletedThreadsList, setDeletedThreadsList] = useState<any[]>([]);
+  const [deletedRepliesList, setDeletedRepliesList] = useState<any[]>([]);
+  useEffect(() => {
+    if (!isDeveloper) { setDeletedThreadsList([]); setDeletedRepliesList([]); return; }
+    const unsub1 = onSnapshot(query(collection(db, 'deletedThreads'), orderBy('deletedAt', 'desc')), (snap) => {
+      setDeletedThreadsList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    const unsub2 = onSnapshot(query(collection(db, 'deletedReplies'), orderBy('deletedAt', 'desc')), (snap) => {
+      setDeletedRepliesList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => { unsub1(); unsub2(); };
+  }, [isDeveloper]);
 
   useEffect(() => {
     getDoc(doc(db, 'settings', 'about')).then((snap) => {
@@ -1000,7 +1015,7 @@ export default function AscendMaxx() {
       setShowNewThreadModal(false);
       setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]);
       setNewThreadTag(''); setNewThreadTagColor('#6366f1');
-    } catch { alert('Failed to post. Try again.'); }
+    } catch (e: any) { console.error('createThread failed:', e); alert(`Failed to post: ${e?.message || 'unknown error'}`); }
     setPostingThread(false);
   };
 
@@ -1012,11 +1027,22 @@ export default function AscendMaxx() {
     });
   };
 
+  // Staff/mod delete for a thread — moved to Trash (deletedThreads) instead of
+  // being wiped outright, so the dev can review and restore it later if a
+  // mod removed something they shouldn't have.
   const deleteThread = async (threadId: string) => {
-    if (!confirm('Delete this thread?')) return;
+    if (!confirm('Delete this thread? It will go to Trash and can be restored later.')) return;
     try {
-      // Find the thread to get the authorUid before deleting
       const thread = threads.find(t => t.id === threadId);
+      const threadSnap = await getDoc(doc(db, 'threads', threadId));
+      if (threadSnap.exists()) {
+        await setDoc(doc(db, 'deletedThreads', threadId), {
+          ...threadSnap.data(),
+          deletedAt: serverTimestamp(),
+          deletedBy: currentUid,
+          deletedByUsername: currentUser,
+        });
+      }
       await deleteDoc(doc(db, 'threads', threadId));
       // Decrement the author's threadCount so sidebar stays accurate
       if (thread?.authorUid) {
@@ -1024,17 +1050,89 @@ export default function AscendMaxx() {
           threadCount: increment(-1),
         });
       }
-    } catch { alert('Failed to delete.'); }
+      if (viewingThread?.id === threadId) setViewingThread(null);
+    } catch { alert('Failed to delete thread.'); }
   };
 
-  // Staff/mod delete for a single reply — decrements author replyCount and the thread's reply counter.
+  // Staff/mod delete for a single reply — moved to Trash (deletedReplies)
+  // instead of hard-deleted; decrements author replyCount and the thread's
+  // reply counter as before.
   const deleteReply = async (threadId: string, replyId: string, authorUid?: string) => {
-    if (!confirm('Delete this reply?')) return;
+    if (!confirm('Delete this reply? It will go to Trash and can be restored later.')) return;
     try {
+      const replySnap = await getDoc(doc(db, 'replies', threadId, 'comments', replyId));
+      if (replySnap.exists()) {
+        await addDoc(collection(db, 'deletedReplies'), {
+          ...replySnap.data(),
+          threadId, replyId,
+          deletedAt: serverTimestamp(),
+          deletedBy: currentUid,
+          deletedByUsername: currentUser,
+        });
+      }
       await deleteDoc(doc(db, 'replies', threadId, 'comments', replyId));
       if (authorUid) await updateDoc(doc(db, 'users', authorUid), { replyCount: increment(-1) });
       if (threadId !== 'ann-1') await updateDoc(doc(db, 'threads', threadId), { replies: increment(-1) });
     } catch { alert('Failed to delete reply.'); }
+  };
+
+  // ── Dev-only: Trash — restore or permanently remove soft-deleted content ──
+  const restoreThread = async (d: any) => {
+    try {
+      const { deletedAt, deletedBy, deletedByUsername, id, ...original } = d;
+      await setDoc(doc(db, 'threads', id), original);
+      await deleteDoc(doc(db, 'deletedThreads', id));
+      if (original.authorUid) await updateDoc(doc(db, 'users', original.authorUid), { threadCount: increment(1) });
+    } catch { alert('Failed to restore thread.'); }
+  };
+
+  const permanentlyDeleteThread = async (d: any) => {
+    if (!confirm('Permanently delete this thread and all its replies? This cannot be undone.')) return;
+    try {
+      const repliesSnap = await getDocs(collection(db, 'replies', d.id, 'comments'));
+      await Promise.all(repliesSnap.docs.map(rd => deleteDoc(doc(db, 'replies', d.id, 'comments', rd.id))));
+      await deleteDoc(doc(db, 'deletedThreads', d.id));
+    } catch { alert('Failed to permanently delete thread.'); }
+  };
+
+  const restoreReply = async (d: any) => {
+    try {
+      const { deletedAt, deletedBy, deletedByUsername, threadId, replyId, id, ...original } = d;
+      await setDoc(doc(db, 'replies', threadId, 'comments', replyId), original);
+      await deleteDoc(doc(db, 'deletedReplies', d.id));
+      if (original.authorUid) await updateDoc(doc(db, 'users', original.authorUid), { replyCount: increment(1) });
+      if (threadId !== 'ann-1') await updateDoc(doc(db, 'threads', threadId), { replies: increment(1) });
+    } catch { alert('Failed to restore reply.'); }
+  };
+
+  const permanentlyDeleteReply = async (d: any) => {
+    if (!confirm('Permanently delete this reply? This cannot be undone.')) return;
+    try {
+      await deleteDoc(doc(db, 'deletedReplies', d.id));
+    } catch { alert('Failed to permanently delete reply.'); }
+  };
+
+  // ── Dev-only: edit thread/reply content in place — a lighter-touch ────────
+  // alternative to deleting the whole thing over a single bad word.
+  const editThreadContent = async (thread: any) => {
+    const newTitle = window.prompt('Edit thread title:', thread.title || '');
+    if (newTitle === null) return;
+    const newDesc = window.prompt('Edit thread description:', thread.description || '');
+    if (newDesc === null) return;
+    try {
+      await updateDoc(doc(db, 'threads', thread.id), {
+        title: newTitle.trim() || thread.title,
+        description: newDesc.trim(),
+      });
+    } catch { alert('Failed to edit thread.'); }
+  };
+
+  const editReplyContent = async (threadId: string, replyId: string, currentText: string) => {
+    const newText = window.prompt('Edit reply text:', currentText || '');
+    if (newText === null || !newText.trim()) return;
+    try {
+      await updateDoc(doc(db, 'replies', threadId, 'comments', replyId), { text: newText.trim() });
+    } catch { alert('Failed to edit reply.'); }
   };
 
   // Staff/mod ban toggle — banned users may only post/reply in Ban Appeals.
@@ -1124,12 +1222,13 @@ export default function AscendMaxx() {
       await addDoc(collection(db, 'replies', threadId, 'comments'), {
         text: replyText.trim(), author: currentUser, authorUid: currentUid,
         authorAvatar: currentUserData?.avatar || '', createdAt: serverTimestamp(),
+        forumId: viewingThread.forumId ?? null,
       });
       if (threadId !== 'ann-1') await updateDoc(doc(db, 'threads', threadId), { replies: increment(1) });
       // CHANGE 4: increment replyCount so the message counter works
       await updateDoc(doc(db, 'users', currentUid), { replyCount: increment(1) });
       setReplyText('');
-    } catch { alert('Failed to post reply.'); }
+    } catch (e: any) { console.error('postReply failed:', e); alert(`Failed to post reply: ${e?.message || 'unknown error'}`); }
     setPostingReply(false);
   };
 
@@ -1577,6 +1676,9 @@ export default function AscendMaxx() {
                       {isPinned ? 'unpin' : 'pin'}
                     </button>
                   )}
+                  {isDeveloper && (
+                    <button onClick={() => editThreadContent(thread)} className="text-zinc-600 hover:text-sky-400 text-[10px] font-mono">edit</button>
+                  )}
                   {!isAnnouncement && isStaff && (
                     <button onClick={() => deleteThread(thread.id)} className="text-zinc-600 hover:text-red-400 text-xs font-mono">del</button>
                   )}
@@ -1604,7 +1706,7 @@ export default function AscendMaxx() {
         </div>
       </div>
     );
-  }, [pinnedIds, isDeveloper, isStaff, openProfile, authorAvatarCache]);
+  }, [pinnedIds, isDeveloper, isStaff, editThreadContent, openProfile, authorAvatarCache]);
 
   // ── ForumIndex — nutria-style categorized forum list (used on Home + Forums tab) ──
   const renderForumIndex = useCallback(() => (
@@ -1780,6 +1882,20 @@ export default function AscendMaxx() {
               <span className="text-[10px] font-mono text-zinc-500">{date}</span>
               <div className="flex items-center gap-3">
                 <ReactionBar targetId={postNum === 1 ? viewingThread?.id || '' : threadReplies[postNum - 2]?.id || ''} />
+                {isDeveloper && postNum === 1 && viewingThread?.id !== 'ann-1' && (
+                  <button
+                    onClick={() => editThreadContent(viewingThread)}
+                    className="text-[10px] font-mono text-zinc-600 hover:text-sky-400">
+                    edit
+                  </button>
+                )}
+                {isDeveloper && postNum > 1 && threadReplies[postNum - 2] && (
+                  <button
+                    onClick={() => editReplyContent(viewingThread.id, threadReplies[postNum - 2].id, threadReplies[postNum - 2].text)}
+                    className="text-[10px] font-mono text-zinc-600 hover:text-sky-400">
+                    edit
+                  </button>
+                )}
                 {isStaff && postNum > 1 && threadReplies[postNum - 2] && (
                   <button
                     onClick={() => deleteReply(viewingThread.id, threadReplies[postNum - 2].id, threadReplies[postNum - 2].authorUid)}
@@ -1888,7 +2004,7 @@ export default function AscendMaxx() {
         )}
       </div>
     );
-  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, isStaff, isBannedUser, deleteReply, postReply, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget, ReactionBar, reactionsMap]);
+  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, isStaff, isBannedUser, deleteReply, editThreadContent, editReplyContent, postReply, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget, ReactionBar, reactionsMap]);
 
   // ── StatsPanel ────────────────────────────────────────────────────────────
   const StatsPanel = useCallback(() => {
@@ -2214,7 +2330,7 @@ export default function AscendMaxx() {
           <div className="max-w-7xl mx-auto px-4 h-12 sm:h-11 flex items-center justify-between gap-4">
             {/* Tabs — shown on desktop; on mobile the bottom nav already covers these, so this row focuses on account actions */}
             <div className="hidden sm:flex items-center gap-0.5 text-xs font-mono overflow-x-auto min-w-0" style={{ scrollbarWidth: 'none' }}>
-              {(['Home','Forums','Members','About','Stickers'] as const).map(v => (
+              {([...(['Home','Forums','Members','About','Stickers'] as const), ...(isDeveloper ? ['Trash' as const] : [])]).map(v => (
                 <button key={v}
                   onClick={() => {
                     if (v === 'Home') { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }
@@ -2435,6 +2551,9 @@ export default function AscendMaxx() {
                               {isPinned ? 'unpin' : 'pin'}
                             </button>
                           )}
+                          {isDeveloper && (
+                            <button onClick={() => editThreadContent(t)} className="text-[9px] font-mono text-zinc-600 hover:text-sky-400">edit</button>
+                          )}
                           {isStaff && (
                             <button onClick={() => deleteThread(t.id)} className="text-[9px] font-mono text-zinc-600 hover:text-red-400">del</button>
                           )}
@@ -2560,6 +2679,62 @@ export default function AscendMaxx() {
               ) : (
                 <p className="text-sm text-zinc-400 leading-relaxed font-mono whitespace-pre-wrap">{aboutText}</p>
               )}
+            </div>
+          )}
+
+          {/* ── TRASH (dev-only) ──────────────────────────────────────────── */}
+          {currentView === 'trash' && isDeveloper && (
+            <div>
+              <div className="px-4 py-3 border-b border-zinc-800">
+                <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">Trash</h2>
+                <p className="text-[10px] font-mono text-zinc-600 mt-1">Deleted threads and replies land here first. Restore them, or delete them for good.</p>
+              </div>
+
+              <div className="px-4 py-3">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2">Deleted Threads ({deletedThreadsList.length})</div>
+                {deletedThreadsList.length === 0 ? (
+                  <div className="text-xs font-mono text-zinc-600 py-4">Nothing here.</div>
+                ) : (
+                  <div className="space-y-2 mb-6">
+                    {deletedThreadsList.map(d => (
+                      <div key={d.id} className="border border-zinc-800 px-3 py-2.5 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm text-zinc-200 truncate">{d.title}</div>
+                          <div className="text-[10px] font-mono text-zinc-600 mt-0.5">
+                            by {d.author} in {d.forum} · deleted by {d.deletedByUsername || 'unknown'}
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0 flex items-center gap-2">
+                          <button onClick={() => restoreThread(d)} className="text-[10px] font-mono text-emerald-500 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2 py-1 uppercase tracking-widest">Restore</button>
+                          <button onClick={() => permanentlyDeleteThread(d)} className="text-[10px] font-mono text-red-500 hover:text-red-400 border border-zinc-800 hover:border-red-700 px-2 py-1 uppercase tracking-widest">Delete Forever</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2">Deleted Replies ({deletedRepliesList.length})</div>
+                {deletedRepliesList.length === 0 ? (
+                  <div className="text-xs font-mono text-zinc-600 py-4">Nothing here.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {deletedRepliesList.map(d => (
+                      <div key={d.id} className="border border-zinc-800 px-3 py-2.5 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm text-zinc-300 line-clamp-2">{d.text}</div>
+                          <div className="text-[10px] font-mono text-zinc-600 mt-0.5">
+                            by {d.author} · deleted by {d.deletedByUsername || 'unknown'}
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0 flex items-center gap-2">
+                          <button onClick={() => restoreReply(d)} className="text-[10px] font-mono text-emerald-500 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2 py-1 uppercase tracking-widest">Restore</button>
+                          <button onClick={() => permanentlyDeleteReply(d)} className="text-[10px] font-mono text-red-500 hover:text-red-400 border border-zinc-800 hover:border-red-700 px-2 py-1 uppercase tracking-widest">Delete Forever</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -3432,6 +3607,7 @@ export default function AscendMaxx() {
             { label: 'Analysis', view: '__ai__',      icon: <><circle cx="12" cy="12" r="7.5" /><path d="M12 8v4l2.5 2.5" /></> },
             { label: 'About',    view: 'about',       icon: <><circle cx="12" cy="12" r="8" /><path d="M12 11v5.5M12 8v.01" /></> },
             { label: 'Theme',    view: '__theme__',   icon: <><circle cx="12" cy="12" r="8" /><circle cx="9" cy="10" r="1" /><circle cx="13.5" cy="8.5" r="1" /><circle cx="16" cy="12.5" r="1" /><path d="M12 4a8 8 0 000 16c1 0 1.5-.5 1.5-1.3 0-.5-.3-.8-.3-1.3 0-.7.5-1.2 1.2-1.2h1.4A3.2 3.2 0 0019 13.7C19 8 16 4 12 4z" /></> },
+            ...(isDeveloper ? [{ label: 'Trash', view: 'trash', icon: <><path d="M4.5 7h15" /><path d="M9 7V4.5a1 1 0 011-1h4a1 1 0 011 1V7" /><path d="M6.5 7l1 12.5a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4L17.5 7" /></> }] : []),
           ].map(({ label, view, icon }) => {
             const active = currentView === view;
             return (
