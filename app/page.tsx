@@ -18,51 +18,54 @@ const DEVELOPER_EMAIL = 'ascendmaxxforum@gmail.com';
 const DEVELOPER_USERNAME = 'ascendmaxx';
 
 const allForums = [
-  { id: 1,  section: 'Important',    name: 'Rules',                desc: 'Forum rules and posting guidelines. Read before you post anywhere else.' },
-  { id: 2,  section: 'Important',    name: 'Announcements',        desc: 'Official updates, feature releases, and important site news from staff.' },
-  { id: 3,  section: 'Off topic',    name: 'Lounge',                desc: 'General discussion, site updates, and casual conversation.' },
-  { id: 4,  section: 'Off topic',    name: 'Music',                 desc: 'Share and discuss music, playlists, and anything audio related.' },
-  { id: 5,  section: 'Off topic',    name: 'Media',                 desc: 'Post and discuss images, videos, and other media.' },
-  { id: 6,  section: 'Looksmaxxing', name: 'Rate Me',                desc: 'Post your photos and get honest ratings and feedback from the community.' },
-  { id: 7,  section: 'Looksmaxxing', name: 'Looksmaxxing',           desc: 'Discuss looksmaxxing routines, advice, and aesthetics improvement.' },
-  { id: 8,  section: 'Biohacking',   name: 'Cognitive improvement', desc: 'Nootropics, focus, sleep, and optimizing brain performance.' },
+  { id: 1,  section: 'Important',    name: 'Rules',                desc: 'Everything you need to know before posting. Staff-only board — please read it in full.' },
+  { id: 2,  section: 'Important',    name: 'Announcements',        desc: 'New features, site changes, and important notices straight from the staff team.' },
+  { id: 3,  section: 'Off topic',    name: 'Lounge',                desc: 'Hang out, chat about whatever\u2019s on your mind, and get to know the community.' },
+  { id: 4,  section: 'Off topic',    name: 'Music',                 desc: 'Drop tracks, swap playlists, and talk about anything music related.' },
+  { id: 5,  section: 'Off topic',    name: 'Media',                 desc: 'Share pictures, clips, and other media worth showing off.' },
+  { id: 6,  section: 'Looksmaxxing', name: 'Rate Me',                desc: 'Drop a photo and get straightforward feedback from the community.' },
+  { id: 7,  section: 'Looksmaxxing', name: 'Looksmaxxing',           desc: 'Talk routines, tips, and general advice for improving your look.' },
+  { id: 8,  section: 'Biohacking',   name: 'Cognitive improvement', desc: 'Sleep, focus, and other habits that sharpen how your brain performs.' },
   { id: 9,  section: 'Moneymaxxing', name: 'Moneymaxxing',          desc: 'Building wealth, careers, and financial self-improvement.' },
   { id: 10, section: 'Larpmaxxing',  name: 'Larpmaxxing',           desc: 'Off-beat and joke threads. Take everything here with a grain of salt.' },
 
   // ── Added sections/topics ──────────────────────────────────────────────
-  { id: 11, section: 'Information',  name: 'News & Announcements', desc: 'Stay up to date with the latest news, updates, and important announcements from staff.' },
+  { id: 11, section: 'Information',  name: 'News & Announcements', desc: 'A roundup of what\u2019s new, what changed, and what staff want you to know.' },
 
-  { id: 12, section: 'Nutrition',    name: 'Nutrition & Diet',      desc: 'Discuss everything related to food, diets, macros, meal planning, and eating for optimal health.' },
-  { id: 13, section: 'Nutrition',    name: 'Supplements & Vitamins', desc: 'Share and discuss supplements, vitamins, minerals, and their effects on health and performance.' },
-  { id: 14, section: 'Nutrition',    name: 'Blood Work & Labs',     desc: 'Discuss lab results, biomarkers, hormones, and how to interpret and optimize your health panels.' },
-  { id: 15, section: 'Nutrition',    name: 'Food Reviews',          desc: 'Review and rate foods, restaurants, products, and anything else worth eating or avoiding.' },
+  { id: 12, section: 'Nutrition',    name: 'Nutrition & Diet',      desc: 'Food, macros, meal planning, and anything about eating well.' },
+  { id: 13, section: 'Nutrition',    name: 'Supplements & Vitamins', desc: 'What people are taking, why, and how it\u2019s working out for them.' },
+  { id: 14, section: 'Nutrition',    name: 'Blood Work & Labs',     desc: 'Comparing lab results and biomarkers, and figuring out what they mean.' },
+  { id: 15, section: 'Nutrition',    name: 'Food Reviews',          desc: 'Rate meals, restaurants, and products — the good, the bad, and the questionable.' },
 
-  { id: 16, section: 'Physical',     name: 'Fitness & Training',    desc: 'Everything related to working out, building muscle, losing fat, and physical performance.' },
-  { id: 17, section: 'Physical',     name: 'Skincare & Hair',       desc: 'Discuss skincare routines, hair health, grooming, and looking your best.' },
+  { id: 16, section: 'Physical',     name: 'Fitness & Training',    desc: 'Workouts, programs, and progress toward building strength and losing fat.' },
+  { id: 17, section: 'Physical',     name: 'Skincare & Hair',       desc: 'Routines and grooming tips for skin, hair, and general upkeep.' },
+  { id: 23, section: 'Physical',     name: 'Sleep & Recovery',      desc: 'Rest, recovery habits, and getting your sleep schedule dialed in.' },
 
-  { id: 18, section: 'Discussion',   name: 'Health Research & Facts', desc: 'Discuss studies, research, and science backed health information.' },
-  { id: 19, section: 'Discussion',   name: 'Guides & Resources',    desc: 'Community guides, tutorials, and resources on health and nutrition topics.' },
+  { id: 18, section: 'Discussion',   name: 'Health Research & Facts', desc: 'Bring studies and sources — this board is for evidence, not vibes.' },
+  { id: 19, section: 'Discussion',   name: 'Guides & Resources',    desc: 'Community write-ups and reference material worth bookmarking.' },
+  { id: 24, section: 'Discussion',   name: 'Debates & Hot Takes',   desc: 'Pick a side and argue it out — keep it civil.' },
 
-  { id: 20, section: 'Off topic',    name: 'Venting & Stories',     desc: 'Need to get something off your chest? Come make a thread here to talk freely about your personal stories.' },
+  { id: 20, section: 'Off topic',    name: 'Venting & Stories',     desc: 'A place to get things off your chest or share what\u2019s been going on in your life.' },
+  { id: 25, section: 'Off topic',    name: 'Wins & Success Stories', desc: 'Made progress on something? Post it here and celebrate a bit.' },
 
-  { id: 21, section: 'Other',        name: 'Ban Appeals',           desc: 'Where users appeal for the mistakes they have done, and get a public response from moderators.' },
+  { id: 21, section: 'Other',        name: 'Ban Appeals',           desc: 'The only board banned members can post in — make your case to the mod team here.' },
   { id: 22, section: 'Other',        name: 'Suggestions',           desc: 'Suggest features to improve the forum.' },
 ];
 
 const forumSections = ['Important','Off topic','Looksmaxxing','Biohacking','Moneymaxxing','Larpmaxxing','Information','Nutrition','Physical','Discussion','Other'];
 
 const sectionDescriptions: Record<string, string> = {
-  'Important':    'Official updates, rule changes, and site news from staff. Read before you post anywhere else.',
+  'Important':    'Staff notices and site-wide rules. Worth reading before you post anywhere else.',
   'Off topic':    'Anything that doesn\u2019t fit neatly under Looksmaxxing, Biohacking, or Moneymaxxing goes here.',
   'Looksmaxxing': 'Get advice from others about hardmaxxing, softmaxxing, and aesthetics in general.',
-  'Biohacking':   'Optimizing the body and mind through habits, supplements, and routines.',
+  'Biohacking':   'Habits, supplements, and routines for getting more out of your body and mind.',
   'Moneymaxxing': 'Building wealth, careers, and financial self-improvement.',
   'Larpmaxxing':  'Off-beat and joke threads. Take everything here with a grain of salt.',
-  'Information':  'Official updates, rule changes, and site news from staff. Read before you post anywhere else.',
-  'Nutrition':    'Everything related to food, diet, and what you\u2019re putting into your body.',
-  'Physical':     'Training, aesthetics, and the physical side of self-improvement.',
-  'Discussion':   'Research, guides, and anything that doesn\u2019t fit neatly under Nutrition or Physical.',
-  'Other':        'Miscellaneous topics that have to do with users being banned and appealing, and suggestions for the site.',
+  'Information':  'Staff notices and site-wide rules. Worth reading before you post anywhere else.',
+  'Nutrition':    'Food, diet, and what you\u2019re putting into your body.',
+  'Physical':     'Training, recovery, and the physical side of self-improvement.',
+  'Discussion':   'Research, guides, and conversation that doesn\u2019t fit neatly under Nutrition or Physical.',
+  'Other':        'Ban appeals and site suggestions live here.',
 };
 
 const THREADMAXXER_COLORS = [
@@ -404,6 +407,12 @@ export default function AscendMaxx() {
   const [currentUserData, setCurrentUserData] = useState<any>(null);
   const [isDeveloper, setIsDeveloper]         = useState(false);
   const [authLoading, setAuthLoading]         = useState(true);
+
+  // ── Moderation: derived from the logged-in user's own doc ────────────────
+  const isModerator  = !!currentUserData?.isModerator && !isDeveloper;
+  const isStaff       = isDeveloper || isModerator; // dev + mods: delete/ban powers, rules-board posting
+  const isBannedUser  = !!currentUserData?.banned;
+  const BAN_APPEALS_FORUM_ID = 21;
 
   const [showLogin, setShowLogin]       = useState(false);
   const [loginData, setLoginData]       = useState({ email: '', password: '' });
@@ -940,6 +949,8 @@ export default function AscendMaxx() {
   const createThread = async () => {
     if (!newThreadTitle.trim()) { alert('Title required'); return; }
     if (selectedForum?.id === 2 && !isDeveloper) { alert('Only administrators can post in Announcements.'); return; }
+    if (selectedForum?.id === 1 && !isStaff) { alert('Only staff and moderators can post in Rules.'); return; }
+    if (isBannedUser && selectedForum?.id !== BAN_APPEALS_FORUM_ID) { alert('Your account is banned. You can only post in Ban Appeals.'); return; }
     setPostingThread(true);
     try {
       await addDoc(collection(db, 'threads'), {
@@ -983,6 +994,34 @@ export default function AscendMaxx() {
     } catch { alert('Failed to delete.'); }
   };
 
+  // Staff/mod delete for a single reply — decrements author replyCount and the thread's reply counter.
+  const deleteReply = async (threadId: string, replyId: string, authorUid?: string) => {
+    if (!confirm('Delete this reply?')) return;
+    try {
+      await deleteDoc(doc(db, 'replies', threadId, 'comments', replyId));
+      if (authorUid) await updateDoc(doc(db, 'users', authorUid), { replyCount: increment(-1) });
+      if (threadId !== 'ann-1') await updateDoc(doc(db, 'threads', threadId), { replies: increment(-1) });
+    } catch { alert('Failed to delete reply.'); }
+  };
+
+  // Staff/mod ban toggle — banned users may only post/reply in Ban Appeals.
+  const toggleBan = async (targetUid: string, currentlyBanned: boolean) => {
+    if (!confirm(currentlyBanned ? 'Unban this user?' : 'Ban this user? They will only be able to post in Ban Appeals.')) return;
+    try {
+      await updateDoc(doc(db, 'users', targetUid), { banned: !currentlyBanned });
+      setViewingProfile((prev: any) => prev && prev.uid === targetUid ? { ...prev, banned: !currentlyBanned } : prev);
+    } catch { alert('Failed to update ban status.'); }
+  };
+
+  // Dev-only: grant/revoke moderator privileges from a user's profile.
+  const toggleModerator = async (targetUid: string, currentlyMod: boolean) => {
+    if (!confirm(currentlyMod ? 'Remove moderator privileges?' : 'Grant this user moderator privileges?')) return;
+    try {
+      await updateDoc(doc(db, 'users', targetUid), { isModerator: !currentlyMod });
+      setViewingProfile((prev: any) => prev && prev.uid === targetUid ? { ...prev, isModerator: !currentlyMod } : prev);
+    } catch { alert('Failed to update moderator status.'); }
+  };
+
   const togglePin = async (threadId: string) => {
     const next = pinnedIds.includes(threadId)
       ? pinnedIds.filter(id => id !== threadId)
@@ -993,6 +1032,7 @@ export default function AscendMaxx() {
 
   const postReply = async () => {
     if (!replyText.trim() || !viewingThread) return;
+    if (isBannedUser && viewingThread.forumId !== BAN_APPEALS_FORUM_ID) { alert('Your account is banned. You can only reply in Ban Appeals.'); return; }
     setPostingReply(true);
     const threadId = viewingThread.id;
     try {
@@ -1452,7 +1492,7 @@ export default function AscendMaxx() {
                       {isPinned ? 'unpin' : 'pin'}
                     </button>
                   )}
-                  {!isAnnouncement && isDeveloper && (
+                  {!isAnnouncement && isStaff && (
                     <button onClick={() => deleteThread(thread.id)} className="text-zinc-600 hover:text-red-400 text-xs font-mono">del</button>
                   )}
                 </div>
@@ -1479,7 +1519,7 @@ export default function AscendMaxx() {
         </div>
       </div>
     );
-  }, [pinnedIds, isDeveloper, openProfile, authorAvatarCache]);
+  }, [pinnedIds, isDeveloper, isStaff, openProfile, authorAvatarCache]);
 
   // ── ForumIndex — nutria-style categorized forum list (used on Home + Forums tab) ──
   const renderForumIndex = useCallback(() => (
@@ -1655,6 +1695,13 @@ export default function AscendMaxx() {
               <span className="text-[10px] font-mono text-zinc-500">{date}</span>
               <div className="flex items-center gap-3">
                 <ReactionBar targetId={postNum === 1 ? viewingThread?.id || '' : threadReplies[postNum - 2]?.id || ''} />
+                {isStaff && postNum > 1 && threadReplies[postNum - 2] && (
+                  <button
+                    onClick={() => deleteReply(viewingThread.id, threadReplies[postNum - 2].id, threadReplies[postNum - 2].authorUid)}
+                    className="text-[10px] font-mono text-zinc-600 hover:text-red-400">
+                    del
+                  </button>
+                )}
                 <span className="text-[10px] font-mono text-zinc-600">#{postNum}</span>
               </div>
             </div>
@@ -1728,7 +1775,11 @@ export default function AscendMaxx() {
           {threadReplies.length} {threadReplies.length === 1 ? 'Reply' : 'Replies'}
         </div>
 
-        {isLoggedIn ? (
+        {isLoggedIn && isBannedUser && viewingThread.forumId !== BAN_APPEALS_FORUM_ID ? (
+          <div className="px-4 py-4 border-t border-zinc-800 text-center text-xs font-mono text-red-400">
+            Your account is banned. You can only post in Ban Appeals.
+          </div>
+        ) : isLoggedIn ? (
           <div className="px-4 py-4 border-t border-zinc-800 bg-zinc-950/50">
             <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-2">Leave a reply</div>
             <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
@@ -1752,7 +1803,7 @@ export default function AscendMaxx() {
         )}
       </div>
     );
-  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget, ReactionBar, reactionsMap]);
+  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, isStaff, isBannedUser, deleteReply, postReply, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget, ReactionBar, reactionsMap]);
 
   // ── StatsPanel ────────────────────────────────────────────────────────────
   const StatsPanel = useCallback(() => {
@@ -2229,7 +2280,7 @@ export default function AscendMaxx() {
                     <button className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 uppercase tracking-widest mb-0.5 block" onClick={() => setSelectedForum(null)}>Forums /</button>
                     <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-zinc-300">{selectedForum.name}</h2>
                   </div>
-                  {isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && (
+                  {isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && (selectedForum.id !== 1 || isStaff) && (!isBannedUser || selectedForum.id === BAN_APPEALS_FORUM_ID) && (
                     <button onClick={() => setShowNewThreadModal(true)} className={btnPrimary}>+ New Thread</button>
                   )}
                 </div>
@@ -2256,7 +2307,7 @@ export default function AscendMaxx() {
                 {threadsLoading ? (
                   <div className="text-center py-20 text-zinc-600 font-mono text-xs">Loading...</div>
                 ) : visibleThreads.length === 0 ? (
-                  <div className="text-center py-20 text-zinc-600 font-mono text-xs">No threads yet.{isLoggedIn && (selectedForum.id !== 2 || isDeveloper) ? ' Start one.' : ''}</div>
+                  <div className="text-center py-20 text-zinc-600 font-mono text-xs">No threads yet.{isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && (selectedForum.id !== 1 || isStaff) && (!isBannedUser || selectedForum.id === BAN_APPEALS_FORUM_ID) ? ' Start one.' : ''}</div>
                 ) : pageThreads.map(t => {
                   const isPinned = pinnedIds.includes(t.id);
                   return (
@@ -2292,12 +2343,16 @@ export default function AscendMaxx() {
                           <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Views</div>
                         </div>
                       </div>
-                      {isDeveloper && (
+                      {(isDeveloper || isStaff) && (
                         <div className="flex-shrink-0 flex flex-col items-end gap-1" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => togglePin(t.id)} className={`text-[9px] font-mono ${isPinned ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
-                            {isPinned ? 'unpin' : 'pin'}
-                          </button>
-                          <button onClick={() => deleteThread(t.id)} className="text-[9px] font-mono text-zinc-600 hover:text-red-400">del</button>
+                          {isDeveloper && (
+                            <button onClick={() => togglePin(t.id)} className={`text-[9px] font-mono ${isPinned ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
+                              {isPinned ? 'unpin' : 'pin'}
+                            </button>
+                          )}
+                          {isStaff && (
+                            <button onClick={() => deleteThread(t.id)} className="text-[9px] font-mono text-zinc-600 hover:text-red-400">del</button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2492,6 +2547,10 @@ export default function AscendMaxx() {
         const profRep = viewingProfile.rep || 0;
         const canRepProfile = isLoggedIn && currentUid && viewingProfile.uid !== currentUid && !repGivenMap[viewingProfile.uid];
         const alreadyReppedProfile = !!repGivenMap[viewingProfile.uid];
+        const isTargetSelf = viewingProfile.uid === currentUid;
+        const isTargetDev  = viewingProfile.username === DEVELOPER_USERNAME;
+        const canModerateTarget = isStaff && !isTargetSelf && !isTargetDev;
+        const canGrantModTarget = isDeveloper && !isTargetSelf && !isTargetDev;
 
         return (
           <Modal onClose={() => setViewingProfile(null)} maxW="max-w-md">
@@ -2518,9 +2577,31 @@ export default function AscendMaxx() {
                     Edit Tag
                   </button>
                 )}
+                {canGrantModTarget && (
+                  <button onClick={() => toggleModerator(viewingProfile.uid, !!viewingProfile.isModerator)}
+                    className="text-[10px] font-mono text-zinc-600 hover:text-sky-400 border border-zinc-800 hover:border-sky-700 px-2 py-1 transition uppercase tracking-widest">
+                    {viewingProfile.isModerator ? 'Remove Mod' : 'Mod'}
+                  </button>
+                )}
+                {canModerateTarget && (
+                  <button onClick={() => toggleBan(viewingProfile.uid, !!viewingProfile.banned)}
+                    className="text-[10px] font-mono text-zinc-600 hover:text-red-400 border border-zinc-800 hover:border-red-700 px-2 py-1 transition uppercase tracking-widest">
+                    {viewingProfile.banned ? 'Unban' : 'Ban'}
+                  </button>
+                )}
                 <button onClick={() => setViewingProfile(null)} className="text-zinc-600 hover:text-zinc-300 font-mono text-sm">x</button>
               </div>
             </div>
+            {(viewingProfile.isModerator || viewingProfile.banned) && (
+              <div className="px-5 py-2 border-b border-zinc-800 flex gap-2">
+                {viewingProfile.isModerator && (
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-sky-400 border border-sky-800 px-1.5 py-0.5">Moderator</span>
+                )}
+                {viewingProfile.banned && (
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-red-400 border border-red-800 px-1.5 py-0.5">Banned</span>
+                )}
+              </div>
+            )}
 
             {viewingProfile.bio && (
               <div className="px-5 py-3 border-b border-zinc-800">
