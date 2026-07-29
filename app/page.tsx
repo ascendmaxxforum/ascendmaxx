@@ -1005,28 +1005,44 @@ export default function AscendMaxx() {
     if (selectedForum?.id === 1 && !isStaff) { alert('Only staff and moderators can post in Rules.'); return; }
     if (isBannedUser && selectedForum?.id !== BAN_APPEALS_FORUM_ID) { alert('Your account is banned. You can only post in Ban Appeals.'); return; }
     setPostingThread(true);
+    const payload = {
+      title: newThreadTitle, description: newThreadDescription,
+      forum: selectedForum?.name ?? 'Lounge', forumId: selectedForum?.id ?? 3,
+      author: currentUser, authorUid: currentUid,
+      authorAvatar: currentUserData?.avatar || '',
+      images: newThreadImages, replies: 0, views: 1,
+      tag: newThreadTag.trim() || null,
+      tagColor: newThreadTag.trim() ? (THREAD_TAG_COLOR[newThreadTag.trim()] || '#6366f1') : null,
+    };
+    // TEMP DEBUG — remove once posting works again. Each write below is
+    // wrapped separately so the console tells us exactly which one is
+    // denied, instead of one generic "failed to post" for both.
+    console.log('[createThread] payload:', payload);
+    console.log('[createThread] currentUid:', currentUid, 'isDeveloper:', isDeveloper, 'isModerator:', isModerator, 'isStaff:', isStaff, 'isBannedUser:', isBannedUser);
+
+    let newThreadId: string | null = null;
     try {
-      const payload = {
-        title: newThreadTitle, description: newThreadDescription,
-        forum: selectedForum?.name ?? 'Lounge', forumId: selectedForum?.id ?? 3,
-        author: currentUser, authorUid: currentUid,
-        authorAvatar: currentUserData?.avatar || '',
-        images: newThreadImages, replies: 0, views: 1,
-        tag: newThreadTag.trim() || null,
-        tagColor: newThreadTag.trim() ? (THREAD_TAG_COLOR[newThreadTag.trim()] || '#6366f1') : null,
-      };
-      // TEMP DEBUG — remove once posting works again. Shows exactly what's
-      // being written and who's writing it, so a permissions error can be
-      // matched up against the rules by eye instead of guessing.
-      console.log('[createThread] payload:', payload);
-      console.log('[createThread] currentUid:', currentUid, 'isDeveloper:', isDeveloper, 'isModerator:', isModerator, 'isStaff:', isStaff, 'isBannedUser:', isBannedUser);
-      console.log('[createThread] currentUserData:', currentUserData);
-      await addDoc(collection(db, 'threads'), { ...payload, createdAt: serverTimestamp() });
+      const ref = await addDoc(collection(db, 'threads'), { ...payload, createdAt: serverTimestamp() });
+      newThreadId = ref.id;
+      console.log('[createThread] STEP 1 (create thread) — OK, id:', ref.id);
+    } catch (e: any) {
+      console.error('[createThread] STEP 1 (create thread) — FAILED:', e);
+      alert(`Failed at STEP 1 (creating the thread): ${e?.message || 'unknown error'}`);
+      setPostingThread(false);
+      return;
+    }
+
+    try {
       await updateDoc(doc(db, 'users', currentUid), { threadCount: increment(1) });
-      setShowNewThreadModal(false);
-      setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]);
-      setNewThreadTag(''); setNewThreadTagColor('#6366f1');
-    } catch (e: any) { console.error('createThread failed:', e); alert(`Failed to post: ${e?.message || 'unknown error'}`); }
+      console.log('[createThread] STEP 2 (your thread count) — OK');
+    } catch (e: any) {
+      console.error('[createThread] STEP 2 (your thread count) — FAILED:', e);
+      alert(`Thread posted (id: ${newThreadId}), but STEP 2 (updating your thread count) failed: ${e?.message || 'unknown error'}`);
+    }
+
+    setShowNewThreadModal(false);
+    setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]);
+    setNewThreadTag(''); setNewThreadTagColor('#6366f1');
     setPostingThread(false);
   };
 
@@ -1229,23 +1245,45 @@ export default function AscendMaxx() {
     if (isBannedUser && viewingThread.forumId !== BAN_APPEALS_FORUM_ID) { alert('Your account is banned. You can only reply in Ban Appeals.'); return; }
     setPostingReply(true);
     const threadId = viewingThread.id;
+    const payload = {
+      text: replyText.trim(), author: currentUser, authorUid: currentUid,
+      authorAvatar: currentUserData?.avatar || '',
+      forumId: viewingThread.forumId ?? null,
+    };
+    // TEMP DEBUG — remove once posting works again. Each write below is
+    // wrapped separately so the console tells us exactly which one is
+    // denied, instead of one generic "failed to post reply" for all three.
+    console.log('[postReply] payload:', payload);
+    console.log('[postReply] threadId:', threadId, 'viewingThread.forumId:', viewingThread.forumId);
+    console.log('[postReply] currentUid:', currentUid, 'isDeveloper:', isDeveloper, 'isModerator:', isModerator, 'isStaff:', isStaff, 'isBannedUser:', isBannedUser);
+
     try {
-      const payload = {
-        text: replyText.trim(), author: currentUser, authorUid: currentUid,
-        authorAvatar: currentUserData?.avatar || '',
-        forumId: viewingThread.forumId ?? null,
-      };
-      // TEMP DEBUG — remove once posting works again.
-      console.log('[postReply] payload:', payload);
-      console.log('[postReply] threadId:', threadId, 'viewingThread.forumId:', viewingThread.forumId);
-      console.log('[postReply] currentUid:', currentUid, 'isDeveloper:', isDeveloper, 'isModerator:', isModerator, 'isStaff:', isStaff, 'isBannedUser:', isBannedUser);
-      console.log('[postReply] currentUserData:', currentUserData);
       await addDoc(collection(db, 'replies', threadId, 'comments'), { ...payload, createdAt: serverTimestamp() });
+      console.log('[postReply] STEP 1 (create reply) — OK');
+    } catch (e: any) {
+      console.error('[postReply] STEP 1 (create reply) — FAILED:', e);
+      alert(`Failed at STEP 1 (creating the reply): ${e?.message || 'unknown error'}`);
+      setPostingReply(false);
+      return;
+    }
+
+    try {
       if (threadId !== 'ann-1') await updateDoc(doc(db, 'threads', threadId), { replies: increment(1) });
-      // CHANGE 4: increment replyCount so the message counter works
+      console.log('[postReply] STEP 2 (thread reply count) — OK');
+    } catch (e: any) {
+      console.error('[postReply] STEP 2 (thread reply count) — FAILED:', e);
+      alert(`Reply posted, but STEP 2 (updating the thread's reply count) failed: ${e?.message || 'unknown error'}`);
+    }
+
+    try {
       await updateDoc(doc(db, 'users', currentUid), { replyCount: increment(1) });
-      setReplyText('');
-    } catch (e: any) { console.error('postReply failed:', e); alert(`Failed to post reply: ${e?.message || 'unknown error'}`); }
+      console.log('[postReply] STEP 3 (your reply count) — OK');
+    } catch (e: any) {
+      console.error('[postReply] STEP 3 (your reply count) — FAILED:', e);
+      alert(`Reply posted, but STEP 3 (updating your reply count) failed: ${e?.message || 'unknown error'}`);
+    }
+
+    setReplyText('');
     setPostingReply(false);
   };
 
