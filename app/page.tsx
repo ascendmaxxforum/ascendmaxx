@@ -706,8 +706,7 @@ export default function AscendMaxx() {
         setStaffMembers(
           snap.docs
             .filter(d => d.data().username === DEVELOPER_USERNAME || d.data().isModerator === true)
-            .map(d => ({ uid: d.id, ...d.data() }))
-            // Developer always first, then mods in whatever order they came back.
+            .map(d => ({ uid: d.id, ...d.data() } as any))
             .sort((a, b) => (b.username === DEVELOPER_USERNAME ? 1 : 0) - (a.username === DEVELOPER_USERNAME ? 1 : 0))
         );
       }
