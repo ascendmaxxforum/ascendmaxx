@@ -287,6 +287,24 @@ const FORUM_ICON_PATHS: Record<string, React.ReactNode> = {
       <path d="M12 7.5v3.5M12 13.2v.01" />
     </>
   ),
+  'Sleep & Recovery': (
+    <>
+      <path d="M20 13.5A8 8 0 1110.5 4a6.5 6.5 0 009.5 9.5z" />
+    </>
+  ),
+  'Debates & Hot Takes': (
+    <>
+      <path d="M3 5.5A1.5 1.5 0 014.5 4h8A1.5 1.5 0 0114 5.5v4A1.5 1.5 0 0112.5 11H8l-3 3v-3H4.5A1.5 1.5 0 013 9.5v-4z" />
+      <path d="M10 14v1.5A1.5 1.5 0 0011.5 17H16l3 3v-3h.5a1.5 1.5 0 001.5-1.5v-4A1.5 1.5 0 0019.5 10H15" />
+    </>
+  ),
+  'Wins & Success Stories': (
+    <>
+      <path d="M7 4h10v4a5 5 0 01-10 0V4z" />
+      <path d="M7 5H4.5A1.5 1.5 0 003 6.5c0 2 1.5 3 3.5 3.2M17 5h2.5A1.5 1.5 0 0121 6.5c0 2-1.5 3-3.5 3.2" />
+      <path d="M12 13v3.5M9 20h6M10 16.5h4v2a1 1 0 01-1 1h-2a1 1 0 01-1-1v-2z" />
+    </>
+  ),
   'Ban Appeals': (
     <>
       <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
@@ -1035,6 +1053,58 @@ export default function AscendMaxx() {
       await updateDoc(doc(db, 'users', targetUid), { isModerator: !currentlyMod });
       setViewingProfile((prev: any) => prev && prev.uid === targetUid ? { ...prev, isModerator: !currentlyMod } : prev);
     } catch { alert('Failed to update moderator status.'); }
+  };
+
+  // ── Dev-only: rename a user, and backfill the display name on every ────────
+  // existing thread/reply they've posted.
+  //
+  // Editing `users/{uid}.username` directly (e.g. from the Firestore
+  // console) is NOT enough — every thread and reply stores the author's
+  // username as a snapshot string at post time, and the `usernames`
+  // collection is a separate username -> uid lookup table used for login
+  // and profile links. This function keeps all three in sync in one go.
+  const [renamingUser, setRenamingUser]   = useState(false);
+  const renameUser = async (targetUid: string, oldUsername: string) => {
+    const input = window.prompt(`Rename "${oldUsername}" to:`, oldUsername);
+    if (!input) return;
+    const newUsername = input.trim();
+    if (newUsername.length < 3) { alert('Username must be at least 3 characters.'); return; }
+    if (newUsername.toLowerCase() === oldUsername.toLowerCase()) return;
+
+    const oldKey = oldUsername.toLowerCase();
+    const newKey = newUsername.toLowerCase();
+    setRenamingUser(true);
+    try {
+      // 1. Make sure the new name isn't already taken.
+      const existing = await getDoc(doc(db, 'usernames', newKey));
+      if (existing.exists()) { alert('That username is already taken.'); setRenamingUser(false); return; }
+
+      // 2. Point a new usernames/{newKey} doc at this uid, then remove the old mapping.
+      await setDoc(doc(db, 'usernames', newKey), { uid: targetUid });
+      await deleteDoc(doc(db, 'usernames', oldKey));
+
+      // 3. Update the canonical username on the user doc itself.
+      await updateDoc(doc(db, 'users', targetUid), { username: newUsername });
+
+      // 4. Backfill every thread this user authored.
+      const threadSnap = await getDocs(query(collection(db, 'threads'), where('authorUid', '==', targetUid)));
+      await Promise.all(threadSnap.docs.map(d => updateDoc(doc(db, 'threads', d.id), { author: newUsername })));
+
+      // 5. Backfill every reply this user posted, across every thread on the site.
+      const allThreadsSnap = await getDocs(collection(db, 'threads'));
+      await Promise.all(allThreadsSnap.docs.map(async (t) => {
+        const repliesSnap = await getDocs(query(collection(db, 'replies', t.id, 'comments'), where('authorUid', '==', targetUid)));
+        await Promise.all(repliesSnap.docs.map(r => updateDoc(doc(db, 'replies', t.id, 'comments', r.id), { author: newUsername })));
+      }));
+
+      setViewingProfile((prev: any) => prev && prev.uid === targetUid ? { ...prev, username: newUsername } : prev);
+      if (currentUid === targetUid) setCurrentUser(newUsername);
+      alert('Username updated everywhere.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to fully rename user — check the console. Some threads/replies may need a manual fix.');
+    }
+    setRenamingUser(false);
   };
 
   const togglePin = async (threadId: string) => {
@@ -2591,6 +2661,13 @@ export default function AscendMaxx() {
                   <button onClick={() => openDevTagEditor(viewingProfile)}
                     className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400 border border-zinc-800 hover:border-emerald-700 px-2 py-1 transition uppercase tracking-widest">
                     Edit Tag
+                  </button>
+                )}
+                {isDeveloper && !isTargetSelf && (
+                  <button onClick={() => renameUser(viewingProfile.uid, viewingProfile.username)}
+                    disabled={renamingUser}
+                    className="text-[10px] font-mono text-zinc-600 hover:text-violet-400 border border-zinc-800 hover:border-violet-700 px-2 py-1 transition uppercase tracking-widest disabled:opacity-50">
+                    {renamingUser ? 'Renaming...' : 'Rename'}
                   </button>
                 )}
                 {canGrantModTarget && (
