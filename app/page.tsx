@@ -1006,7 +1006,7 @@ export default function AscendMaxx() {
     if (isBannedUser && selectedForum?.id !== BAN_APPEALS_FORUM_ID) { alert('Your account is banned. You can only post in Ban Appeals.'); return; }
     setPostingThread(true);
     try {
-      await addDoc(collection(db, 'threads'), {
+      const payload = {
         title: newThreadTitle, description: newThreadDescription,
         forum: selectedForum?.name ?? 'Lounge', forumId: selectedForum?.id ?? 3,
         author: currentUser, authorUid: currentUid,
@@ -1014,8 +1014,14 @@ export default function AscendMaxx() {
         images: newThreadImages, replies: 0, views: 1,
         tag: newThreadTag.trim() || null,
         tagColor: newThreadTag.trim() ? (THREAD_TAG_COLOR[newThreadTag.trim()] || '#6366f1') : null,
-        createdAt: serverTimestamp(),
-      });
+      };
+      // TEMP DEBUG — remove once posting works again. Shows exactly what's
+      // being written and who's writing it, so a permissions error can be
+      // matched up against the rules by eye instead of guessing.
+      console.log('[createThread] payload:', payload);
+      console.log('[createThread] currentUid:', currentUid, 'isDeveloper:', isDeveloper, 'isModerator:', isModerator, 'isStaff:', isStaff, 'isBannedUser:', isBannedUser);
+      console.log('[createThread] currentUserData:', currentUserData);
+      await addDoc(collection(db, 'threads'), { ...payload, createdAt: serverTimestamp() });
       await updateDoc(doc(db, 'users', currentUid), { threadCount: increment(1) });
       setShowNewThreadModal(false);
       setNewThreadTitle(''); setNewThreadDescription(''); setNewThreadImages([]);
@@ -1224,11 +1230,17 @@ export default function AscendMaxx() {
     setPostingReply(true);
     const threadId = viewingThread.id;
     try {
-      await addDoc(collection(db, 'replies', threadId, 'comments'), {
+      const payload = {
         text: replyText.trim(), author: currentUser, authorUid: currentUid,
-        authorAvatar: currentUserData?.avatar || '', createdAt: serverTimestamp(),
+        authorAvatar: currentUserData?.avatar || '',
         forumId: viewingThread.forumId ?? null,
-      });
+      };
+      // TEMP DEBUG — remove once posting works again.
+      console.log('[postReply] payload:', payload);
+      console.log('[postReply] threadId:', threadId, 'viewingThread.forumId:', viewingThread.forumId);
+      console.log('[postReply] currentUid:', currentUid, 'isDeveloper:', isDeveloper, 'isModerator:', isModerator, 'isStaff:', isStaff, 'isBannedUser:', isBannedUser);
+      console.log('[postReply] currentUserData:', currentUserData);
+      await addDoc(collection(db, 'replies', threadId, 'comments'), { ...payload, createdAt: serverTimestamp() });
       if (threadId !== 'ann-1') await updateDoc(doc(db, 'threads', threadId), { replies: increment(1) });
       // CHANGE 4: increment replyCount so the message counter works
       await updateDoc(doc(db, 'users', currentUid), { replyCount: increment(1) });
