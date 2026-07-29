@@ -54,6 +54,21 @@ const allForums = [
 
 const forumSections = ['Important','Off topic','Looksmaxxing','Biohacking','Moneymaxxing','Larpmaxxing','Information','Nutrition','Physical','Discussion','Other'];
 
+// ── Preset thread tags ────────────────────────────────────────────────────
+// Users no longer get to pick their own tag text/color — they choose from
+// this fixed, color-coded list instead.
+const THREAD_TAGS: { name: string; color: string }[] = [
+  { name: 'Discussion', color: '#3b82f6' }, // blue
+  { name: 'Question',   color: '#8b5cf6' }, // purple
+  { name: 'Important',  color: '#ef4444' }, // red
+  { name: 'Info',       color: '#06b6d4' }, // cyan
+  { name: 'Guide',      color: '#10b981' }, // emerald
+  { name: 'Solved',     color: '#84cc16' }, // lime
+  { name: 'Warning',    color: '#f59e0b' }, // amber
+  { name: 'Off-Topic',  color: '#71717a' }, // zinc
+];
+const THREAD_TAG_COLOR: Record<string, string> = Object.fromEntries(THREAD_TAGS.map(t => [t.name, t.color]));
+
 const sectionDescriptions: Record<string, string> = {
   'Important':    'Staff notices and site-wide rules. Worth reading before you post anywhere else.',
   'Off topic':    'Anything that doesn\u2019t fit neatly under Looksmaxxing, Biohacking, or Moneymaxxing goes here.',
@@ -960,7 +975,7 @@ export default function AscendMaxx() {
         authorAvatar: currentUserData?.avatar || '',
         images: newThreadImages, replies: 0, views: 1,
         tag: newThreadTag.trim() || null,
-        tagColor: newThreadTag.trim() ? newThreadTagColor : null,
+        tagColor: newThreadTag.trim() ? (THREAD_TAG_COLOR[newThreadTag.trim()] || '#6366f1') : null,
         createdAt: serverTimestamp(),
       });
       await updateDoc(doc(db, 'users', currentUid), { threadCount: increment(1) });
@@ -2549,7 +2564,8 @@ export default function AscendMaxx() {
         const alreadyReppedProfile = !!repGivenMap[viewingProfile.uid];
         const isTargetSelf = viewingProfile.uid === currentUid;
         const isTargetDev  = viewingProfile.username === DEVELOPER_USERNAME;
-        const canModerateTarget = isStaff && !isTargetSelf && !isTargetDev;
+        // Mods can ban regular members, but only the developer can ban/unban a moderator.
+        const canModerateTarget = isStaff && !isTargetSelf && !isTargetDev && (isDeveloper || !viewingProfile.isModerator);
         const canGrantModTarget = isDeveloper && !isTargetSelf && !isTargetDev;
 
         return (
@@ -3164,30 +3180,21 @@ export default function AscendMaxx() {
               <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">
                 Tag <span className="text-zinc-700 normal-case tracking-normal">(optional — shown before title)</span>
               </label>
-              <div className="flex gap-2 items-center">
-                <input
-                  value={newThreadTag}
-                  onChange={e => setNewThreadTag(e.target.value.slice(0, 20))}
-                  placeholder="e.g. Discussion, Question, Guide..."
-                  className={inputCls + ' flex-1'}
-                  maxLength={20}
-                />
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <label className="text-[10px] font-mono text-zinc-500">Color:</label>
-                  <input
-                    type="color"
-                    value={newThreadTagColor}
-                    onChange={e => setNewThreadTagColor(e.target.value)}
-                    className="w-8 h-8 cursor-pointer border border-zinc-700 bg-transparent p-0.5"
-                  />
-                </div>
-              </div>
+              <select
+                value={newThreadTag}
+                onChange={e => setNewThreadTag(e.target.value)}
+                className={inputCls}>
+                <option value="">No tag</option>
+                {THREAD_TAGS.map(t => (
+                  <option key={t.name} value={t.name}>{t.name}</option>
+                ))}
+              </select>
               {newThreadTag.trim() && (
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-[10px] font-mono text-zinc-600">Preview:</span>
                   <span
                     className="inline-block px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-white"
-                    style={{ backgroundColor: newThreadTagColor }}>
+                    style={{ backgroundColor: THREAD_TAG_COLOR[newThreadTag] || '#6366f1' }}>
                     {newThreadTag}
                   </span>
                 </div>
