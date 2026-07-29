@@ -704,8 +704,11 @@ export default function AscendMaxx() {
         setTotalUsers(snap.size);
         if (snap.docs.length > 0) setLatestUser(snap.docs[0].data());
         setStaffMembers(
-          snap.docs.filter(d => d.data().username === DEVELOPER_USERNAME)
+          snap.docs
+            .filter(d => d.data().username === DEVELOPER_USERNAME || d.data().isModerator === true)
             .map(d => ({ uid: d.id, ...d.data() }))
+            // Developer always first, then mods in whatever order they came back.
+            .sort((a, b) => (b.username === DEVELOPER_USERNAME ? 1 : 0) - (a.username === DEVELOPER_USERNAME ? 1 : 0))
         );
       }
     );
@@ -2080,8 +2083,6 @@ export default function AscendMaxx() {
 
   // ── StatsPanel ────────────────────────────────────────────────────────────
   const StatsPanel = useCallback(() => {
-    const devMember = staffMembers[0];
-    const devOnline = devMember ? presenceMap[devMember.uid] : false;
     return (
       <div className="p-4 space-y-5">
         {threads.length > 0 && (
@@ -2157,22 +2158,32 @@ export default function AscendMaxx() {
             ))}
           </div>
         </div>
-        {devMember && (
+        {staffMembers.length > 0 && (
           <div className="border border-zinc-800 bg-zinc-900/40 p-4">
             <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-3">Staff</div>
-            <button onClick={() => openProfile(devMember.username)} className="w-full flex items-center gap-3 hover:opacity-80 transition">
-              <div className="relative flex-shrink-0">
-                <Avatar src={devMember.avatar} username={devMember.username} size={38} />
-                <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-zinc-900 ${devOnline ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
-              </div>
-              <div className="text-left min-w-0">
-                <div className="text-xs font-mono text-zinc-100 font-bold truncate">{devMember.username}</div>
-                <div className="text-[10px] font-mono text-emerald-500 mt-0.5">Administrator</div>
-                <div className={`text-[10px] font-mono mt-0.5 ${devOnline ? 'text-emerald-400' : 'text-zinc-600'}`}>
-                  {devOnline ? '● online' : '○ offline'}
-                </div>
-              </div>
-            </button>
+            <div className="space-y-3">
+              {staffMembers.map(member => {
+                const online = !!presenceMap[member.uid];
+                const isAdmin = member.username === DEVELOPER_USERNAME;
+                return (
+                  <button key={member.uid} onClick={() => openProfile(member.username)} className="w-full flex items-center gap-3 hover:opacity-80 transition">
+                    <div className="relative flex-shrink-0">
+                      <Avatar src={member.avatar} username={member.username} size={38} />
+                      <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-zinc-900 ${online ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <div className="text-xs font-mono text-zinc-100 font-bold truncate">{member.username}</div>
+                      <div className={`text-[10px] font-mono mt-0.5 ${isAdmin ? 'text-emerald-500' : 'text-sky-400'}`}>
+                        {isAdmin ? 'Administrator' : 'Moderator'}
+                      </div>
+                      <div className={`text-[10px] font-mono mt-0.5 ${online ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                        {online ? '● online' : '○ offline'}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
         {latestUser && (
