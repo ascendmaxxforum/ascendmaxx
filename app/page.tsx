@@ -14,6 +14,11 @@ import {
   updateDoc, increment, where, deleteDoc,
 } from 'firebase/firestore';
 
+// twemoji ships without TS types — this repo doesn't need a real .d.ts,
+// we only ever call .parse(). Requires `npm install twemoji`.
+// @ts-ignore
+import twemoji from 'twemoji';
+
 const DEVELOPER_EMAIL = 'ascendmaxxforum@gmail.com';
 const DEVELOPER_USERNAME = 'ascendmaxx';
 
@@ -1364,6 +1369,17 @@ export default function AscendMaxx() {
   };
 
   // ── Render sticker text with images inline ────────────────────────────────
+  // Also swaps any regular unicode emoji the person typed/picked from their
+  // own device's emoji keyboard for the Twemoji artwork instead, which reads
+  // with a lot more personality than most default OS emoji sets.
+  const escapeHtml = (str: string) =>
+    str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
   const renderWithStickers = (text: string) => {
     const parts = text.split(/(\[sticker:[^\]]+\])/g);
     return parts.map((part, i) => {
@@ -1371,7 +1387,13 @@ export default function AscendMaxx() {
       if (match) {
         return <img key={i} src={match[1]} alt="sticker" className="max-h-24 max-w-[150px] object-contain inline-block my-1" />;
       }
-      return <span key={i}>{part}</span>;
+      // Escape first so any HTML the person typed stays inert text, THEN
+      // let twemoji swap emoji characters for <img> tags — never the other
+      // way around, or raw HTML could slip through.
+      const safeHtml = twemoji.parse(escapeHtml(part), {
+        folder: 'svg', ext: '.svg', className: 'twemoji-img',
+      });
+      return <span key={i} dangerouslySetInnerHTML={{ __html: safeHtml }} />;
     });
   };
 
@@ -2233,6 +2255,15 @@ export default function AscendMaxx() {
 
   return (
     <div className={`min-h-screen font-sans pb-16 sm:pb-0 ${isWhiteTheme ? 'theme-white' : 'text-zinc-200'}`} style={{ backgroundColor: activeBg }}>
+      <style>{`
+        .twemoji-img {
+          height: 1.2em;
+          width: 1.2em;
+          margin: 0 0.05em 0 0.1em;
+          vertical-align: -0.2em;
+          display: inline-block;
+        }
+      `}</style>
       {isWhiteTheme && (
         <style>{`
           .theme-white { color: #14532d; }
