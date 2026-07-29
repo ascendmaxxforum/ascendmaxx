@@ -35,20 +35,20 @@ const allForums = [
   { id: 10, section: 'Larpmaxxing',  name: 'Larpmaxxing',           desc: 'Off-beat and joke threads. Take everything here with a grain of salt.' },
 
   // ── Added sections/topics ──────────────────────────────────────────────
-  { id: 11, section: 'Information',  name: 'News & Announcements', desc: 'A roundup of what\u2019s new, what changed, and what staff want you to know.' },
+  { id: 11, section: 'Bulletin',     name: 'Site Updates',          desc: 'What changed, what\u2019s new, and anything the team wants you to see.' },
 
-  { id: 12, section: 'Nutrition',    name: 'Nutrition & Diet',      desc: 'Food, macros, meal planning, and anything about eating well.' },
-  { id: 13, section: 'Nutrition',    name: 'Supplements & Vitamins', desc: 'What people are taking, why, and how it\u2019s working out for them.' },
-  { id: 14, section: 'Nutrition',    name: 'Blood Work & Labs',     desc: 'Comparing lab results and biomarkers, and figuring out what they mean.' },
-  { id: 15, section: 'Nutrition',    name: 'Food Reviews',          desc: 'Rate meals, restaurants, and products — the good, the bad, and the questionable.' },
+  { id: 12, section: 'Fuel',         name: 'Eating & Macros',       desc: 'Meals, tracking, and whatever\u2019s working (or not) for you lately.' },
+  { id: 13, section: 'Fuel',         name: 'Stacks & Supplements',  desc: 'Compare what people are running and how it\u2019s actually going.' },
+  { id: 14, section: 'Fuel',         name: 'Panel Results',         desc: 'Post your numbers, compare markers, figure out what they actually mean.' },
+  { id: 15, section: 'Fuel',         name: 'Plate Ratings',         desc: 'Rate what you ate — restaurants, meals, products, all of it.' },
 
-  { id: 16, section: 'Physical',     name: 'Fitness & Training',    desc: 'Workouts, programs, and progress toward building strength and losing fat.' },
-  { id: 17, section: 'Physical',     name: 'Skincare & Hair',       desc: 'Routines and grooming tips for skin, hair, and general upkeep.' },
-  { id: 23, section: 'Physical',     name: 'Sleep & Recovery',      desc: 'Rest, recovery habits, and getting your sleep schedule dialed in.' },
+  { id: 16, section: 'Body',         name: 'Training Log',          desc: 'Programs, lifts, and progress toward whatever you\u2019re chasing.' },
+  { id: 17, section: 'Body',         name: 'Grooming & Skin',       desc: 'Routines, products, and upkeep for skin and hair.' },
+  { id: 23, section: 'Body',         name: 'Rest & Recovery',       desc: 'Sleep habits and everything that helps you actually recover.' },
 
-  { id: 18, section: 'Discussion',   name: 'Health Research & Facts', desc: 'Bring studies and sources — this board is for evidence, not vibes.' },
-  { id: 19, section: 'Discussion',   name: 'Guides & Resources',    desc: 'Community write-ups and reference material worth bookmarking.' },
-  { id: 24, section: 'Discussion',   name: 'Debates & Hot Takes',   desc: 'Pick a side and argue it out — keep it civil.' },
+  { id: 18, section: 'Think Tank',   name: 'Evidence Locker',       desc: 'Studies and sources only — leave the vibes at the door.' },
+  { id: 19, section: 'Think Tank',   name: 'Playbooks',             desc: 'Write-ups and reference material worth saving.' },
+  { id: 24, section: 'Think Tank',   name: 'Debates & Hot Takes',   desc: 'Pick a side and argue it out — keep it civil.' },
 
   { id: 20, section: 'Off topic',    name: 'Venting & Stories',     desc: 'A place to get things off your chest or share what\u2019s been going on in your life.' },
   { id: 25, section: 'Off topic',    name: 'Wins & Success Stories', desc: 'Made progress on something? Post it here and celebrate a bit.' },
@@ -57,7 +57,7 @@ const allForums = [
   { id: 22, section: 'Other',        name: 'Suggestions',           desc: 'Suggest features to improve the forum.' },
 ];
 
-const forumSections = ['Important','Off topic','Looksmaxxing','Biohacking','Moneymaxxing','Larpmaxxing','Information','Nutrition','Physical','Discussion','Other'];
+const forumSections = ['Important','Off topic','Looksmaxxing','Biohacking','Moneymaxxing','Larpmaxxing','Bulletin','Fuel','Body','Think Tank','Other'];
 
 // ── Preset thread tags ────────────────────────────────────────────────────
 // Users no longer get to pick their own tag text/color — they choose from
@@ -81,10 +81,10 @@ const sectionDescriptions: Record<string, string> = {
   'Biohacking':   'Habits, supplements, and routines for getting more out of your body and mind.',
   'Moneymaxxing': 'Building wealth, careers, and financial self-improvement.',
   'Larpmaxxing':  'Off-beat and joke threads. Take everything here with a grain of salt.',
-  'Information':  'Staff notices and site-wide rules. Worth reading before you post anywhere else.',
-  'Nutrition':    'Food, diet, and what you\u2019re putting into your body.',
-  'Physical':     'Training, recovery, and the physical side of self-improvement.',
-  'Discussion':   'Research, guides, and conversation that doesn\u2019t fit neatly under Nutrition or Physical.',
+  'Bulletin':     'Site updates and anything staff want you to see first.',
+  'Fuel':         'Food, supplements, labs, and what you\u2019re putting into your body.',
+  'Body':         'Training, recovery, and the physical side of self-improvement.',
+  'Think Tank':   'Research, write-ups, and conversation that doesn\u2019t fit neatly under Fuel or Body.',
   'Other':        'Ban appeals and site suggestions live here.',
 };
 
