@@ -535,7 +535,7 @@ export default function AscendMaxx() {
     { name: 'Default',  bg: '#0d0d0d' }, { name: 'Midnight', bg: '#0d1117' },
     { name: 'Navy',     bg: '#0a0f1e' }, { name: 'Forest',   bg: '#0a130d' },
     { name: 'Crimson',  bg: '#130a0a' }, { name: 'Purple',   bg: '#0f0a1a' },
-    { name: 'White',    bg: '#ffffff' },
+    { name: 'White',    bg: '#ffffff' }, { name: 'Original', bg: '#d8dfe8' },
   ];
 
   const [showRateModal, setShowRateModal]     = useState(false);
@@ -1783,7 +1783,59 @@ export default function AscendMaxx() {
   }, [pinnedIds, isDeveloper, isStaff, editThreadContent, openProfile, authorAvatarCache]);
 
   // ── ForumIndex — nutria-style categorized forum list (used on Home + Forums tab) ──
-  const renderForumIndex = useCallback(() => (
+  const renderForumIndex = useCallback(() => {
+    const retro = activeBg === '#d8dfe8';
+    if (retro) {
+      return (
+        <div className="px-3 py-3">
+          {forumSections.map(section => {
+            const sectionForums = [
+              ...allForums.filter(f => f.section === section),
+              ...customForums.filter(f => f.section === section),
+            ];
+            if (sectionForums.length === 0) return null;
+            return (
+              <table key={section} className="retro-table mb-4">
+                <tbody>
+                  <tr><th className="retro-catbar" colSpan={4}>{section}</th></tr>
+                  <tr>
+                    <th style={{ width: 34 }}></th>
+                    <th>Forum</th>
+                    <th className="retro-stat-col">Threads</th>
+                    <th style={{ width: 200 }}>Last Post</th>
+                  </tr>
+                  {sectionForums.map(forum => {
+                    const forumThreads = threads.filter(t => t.forumId === forum.id);
+                    const latestThread = forumThreads[0] || null;
+                    const threadCount = forumThreads.length;
+                    return (
+                      <tr key={forum.id ?? forum.firestoreId} className="retro-row"
+                        onClick={() => { setSelectedForum(forum); setCurrentView('forums'); setViewingThread(null); }}>
+                        <td style={{ textAlign: 'center', fontSize: 18 }}><ForumIcon name={forum.name} /></td>
+                        <td>
+                          <div className="retro-forum-title">{forum.name}</div>
+                          <div className="retro-forum-desc">{forum.desc || `Discuss ${forum.name.toLowerCase()}.`}</div>
+                        </td>
+                        <td className="retro-stat-col">{threadCount}</td>
+                        <td>
+                          {latestThread ? (
+                            <>
+                              <span style={{ display: 'block', fontWeight: 'bold', color: '#2b5797' }}>{latestThread.title}</span>
+                              <span style={{ color: '#888' }}>by {latestThread.author} &middot; {latestThread.date}</span>
+                            </>
+                          ) : <span style={{ color: '#999' }}>No threads yet</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            );
+          })}
+        </div>
+      );
+    }
+    return (
     <>
       {forumSections.map(section => {
         const sectionForums = [
@@ -1908,7 +1960,8 @@ export default function AscendMaxx() {
         );
       })}
     </>
-  ), [threads, customForums, authorAvatarCache, isDeveloper]);
+    );
+  }, [threads, customForums, authorAvatarCache, isDeveloper, activeBg]);
 
   // ── ThreadView ────────────────────────────────────────────────────────────
   const ThreadView = useCallback(() => {
@@ -2312,9 +2365,10 @@ export default function AscendMaxx() {
   );
 
   const isWhiteTheme = activeBg === '#ffffff';
+  const isRetroTheme = activeBg === '#d8dfe8';
 
   return (
-    <div className={`min-h-screen font-sans pb-16 sm:pb-0 ${isWhiteTheme ? 'theme-white' : 'text-zinc-200'}`} style={{ backgroundColor: activeBg }}>
+    <div className={`min-h-screen font-sans pb-16 sm:pb-0 ${isWhiteTheme ? 'theme-white' : isRetroTheme ? 'theme-retro' : 'text-zinc-200'}`} style={{ backgroundColor: activeBg }}>
       <style>{`
         .twemoji-img {
           height: 1.2em;
@@ -2324,6 +2378,69 @@ export default function AscendMaxx() {
           display: inline-block;
         }
       `}</style>
+      {isRetroTheme && (
+        <style>{`
+          .theme-retro { color: #222; font-family: Verdana, Geneva, Tahoma, sans-serif; }
+          .theme-retro table.retro-table { border-collapse: collapse; width: 100%; background: #fff; border: 1px solid #b6c2d1; }
+          .theme-retro table.retro-table th { background: linear-gradient(#5b82ab, #3a5f8a); color: #fff; text-align: left; padding: 6px 10px; font-size: 11px; font-weight: normal; border-right: 1px solid #2c4a6e; }
+          .theme-retro table.retro-table th.retro-catbar { background: linear-gradient(#7a94b0, #58749a); font-size: 12px; padding: 5px 10px; font-weight: bold; }
+          .theme-retro table.retro-table td { padding: 8px 10px; border-bottom: 1px solid #dde3ec; vertical-align: top; font-size: 11.5px; color: #222; }
+          .theme-retro table.retro-table tr.retro-row:hover td { background: #eef4fc; cursor: pointer; }
+          .theme-retro table.retro-table tr.retro-thread:nth-child(even) td { background: #f4f7fb; }
+          .theme-retro table.retro-table tr.retro-thread:hover td { background: #eaf1fb; }
+          .theme-retro .retro-forum-title { font-weight: bold; font-size: 12.5px; color: #2b5797; }
+          .theme-retro .retro-forum-desc { color: #666; font-size: 11px; margin-top: 2px; }
+          .theme-retro .retro-stat-col { width: 70px; text-align: center; color: #333; font-size: 11px; }
+          .theme-retro .retro-badge { display: inline-block; font-size: 9.5px; font-weight: bold; padding: 1px 5px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+          .theme-retro .retro-badge-sticky { background: #e8c46a; color: #5b4400; }
+          .theme-retro .retro-badge-hot { background: #e07a5f; color: #fff; }
+          .theme-retro a { color: #2b5797; }
+          .theme-retro a:hover { text-decoration: underline; }
+
+          /* Site-wide fallback recolor for views not rebuilt as tables (DMs, profile, admin, modals) */
+          .theme-retro .bg-black,
+          .theme-retro .bg-zinc-950,
+          .theme-retro .bg-zinc-950\\/50,
+          .theme-retro .bg-zinc-950\\/95,
+          .theme-retro .bg-zinc-900,
+          .theme-retro .bg-zinc-900\\/30,
+          .theme-retro .bg-zinc-900\\/40,
+          .theme-retro .bg-zinc-900\\/50,
+          .theme-retro .bg-zinc-900\\/60,
+          .theme-retro .bg-zinc-900\\/70,
+          .theme-retro .bg-zinc-800,
+          .theme-retro .bg-zinc-700 { background-color: #eef1f5; }
+
+          .theme-retro .border-zinc-950,
+          .theme-retro .border-zinc-900,
+          .theme-retro .border-zinc-800,
+          .theme-retro .border-zinc-800\\/50,
+          .theme-retro .border-zinc-800\\/60,
+          .theme-retro .border-zinc-700,
+          .theme-retro .border-zinc-600,
+          .theme-retro .border-zinc-500,
+          .theme-retro .divide-zinc-800 { border-color: #b6c2d1; }
+
+          .theme-retro .text-zinc-100,
+          .theme-retro .text-zinc-200,
+          .theme-retro .text-zinc-300,
+          .theme-retro .text-zinc-400 { color: #234064; }
+          .theme-retro .text-zinc-500,
+          .theme-retro .text-zinc-600,
+          .theme-retro .text-zinc-700,
+          .theme-retro .text-zinc-800 { color: #55698a; }
+
+          .theme-retro .placeholder-zinc-600::placeholder { color: #7a8ba8; }
+
+          .theme-retro .hover\\:bg-zinc-800:hover,
+          .theme-retro .hover\\:bg-zinc-900:hover { background-color: #dde6f2; }
+          .theme-retro .hover\\:text-zinc-200:hover,
+          .theme-retro .hover\\:text-zinc-300:hover,
+          .theme-retro .hover\\:text-zinc-400:hover { color: #17263c; }
+          .theme-retro .hover\\:border-zinc-500:hover,
+          .theme-retro .hover\\:border-zinc-600:hover { border-color: #7a94b0; }
+        `}</style>
+      )}
       {isWhiteTheme && (
         <style>{`
           .theme-white { color: #14532d; }
@@ -2371,9 +2488,10 @@ export default function AscendMaxx() {
         `}</style>
       )}
 
-      <header className="bg-zinc-950 border-b border-zinc-800 sticky top-0 z-50">
+      <header className={isRetroTheme ? 'sticky top-0 z-50' : 'bg-zinc-950 border-b border-zinc-800 sticky top-0 z-50'}
+        style={isRetroTheme ? { background: 'linear-gradient(#3a5f8a, #234064)', borderBottom: '3px solid #17263c' } : undefined}>
         {/* ── Logo row — large wordmark/image, its own row ─────────────────── */}
-        <div className="max-w-7xl mx-auto px-4 pt-3.5 pb-2.5 sm:pt-4 sm:pb-3 flex items-center justify-between gap-4">
+        <div className={isRetroTheme ? 'max-w-5xl mx-auto px-4 pt-3 pb-2.5 flex items-center justify-between gap-4' : 'max-w-7xl mx-auto px-4 pt-3.5 pb-2.5 sm:pt-4 sm:pb-3 flex items-center justify-between gap-4'}>
           <div
             className="cursor-pointer flex items-center gap-3 min-w-0"
             onClick={() => { setCurrentView('home'); setSelectedForum(null); setViewingThread(null); }}>
@@ -2384,6 +2502,13 @@ export default function AscendMaxx() {
                 style={{ height: `clamp(30px, 8vw, ${Math.max(siteLogoSize, 40)}px)`, width: 'auto' }}
                 className="object-contain"
               />
+            ) : isRetroTheme ? (
+              <div className="min-w-0">
+                <div className="text-2xl font-bold text-white truncate" style={{ fontFamily: '"Trebuchet MS", Verdana, sans-serif', letterSpacing: '0.5px' }}>
+                  Ascend<span style={{ color: '#8fc7ff' }}>Maxx</span>.me
+                </div>
+                <div className="text-[11px] truncate" style={{ color: '#b8cbe0' }}>become the best version of yourself</div>
+              </div>
             ) : (
               <span className="text-emerald-500 font-mono font-bold tracking-widest text-xl sm:text-3xl truncate">ASCENDMAXX</span>
             )}
@@ -2417,8 +2542,9 @@ export default function AscendMaxx() {
         )}
 
         {/* ── Nav bar — tabs on the left, search & auth on the right ───────── */}
-        <nav className="border-t border-zinc-800">
-          <div className="max-w-7xl mx-auto px-4 h-12 sm:h-11 flex items-center justify-between gap-4">
+        <nav className={isRetroTheme ? '' : 'border-t border-zinc-800'}
+          style={isRetroTheme ? { background: '#cdd8e6', borderBottom: '1px solid #a9bad0' } : undefined}>
+          <div className={isRetroTheme ? 'max-w-5xl mx-auto px-4 h-9 flex items-center justify-between gap-4' : 'max-w-7xl mx-auto px-4 h-12 sm:h-11 flex items-center justify-between gap-4'}>
             {/* Tabs — shown on desktop; on mobile the bottom nav already covers these, so this row focuses on account actions */}
             <div className="hidden sm:flex items-center gap-0.5 text-xs font-mono overflow-x-auto min-w-0" style={{ scrollbarWidth: 'none' }}>
               {([...(['Home','Forums','Members','About','Stickers'] as const), ...(isDeveloper ? ['Trash' as const] : [])]).map(v => (
@@ -2428,13 +2554,19 @@ export default function AscendMaxx() {
                     else setCurrentView(v.toLowerCase() as View);
                     setViewingThread(null);
                   }}
-                  className={`px-3 py-1.5 whitespace-nowrap transition-colors ${currentView === v.toLowerCase() ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  className={isRetroTheme
+                    ? `px-3 py-1.5 whitespace-nowrap font-bold ${currentView === v.toLowerCase() ? 'bg-[#eef1f5]' : ''}`
+                    : `px-3 py-1.5 whitespace-nowrap transition-colors ${currentView === v.toLowerCase() ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  style={isRetroTheme ? { color: '#234064', borderRight: '1px solid #b6c2d1' } : undefined}>
                   {v}
                 </button>
               ))}
               {isLoggedIn && (
                 <button onClick={() => { setCurrentView('dms'); setViewingThread(null); setShowDmPanel(false); }}
-                  className={`relative px-3 py-1.5 whitespace-nowrap transition-colors ${currentView === 'dms' ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  className={isRetroTheme
+                    ? `relative px-3 py-1.5 whitespace-nowrap font-bold ${currentView === 'dms' ? 'bg-[#eef1f5]' : ''}`
+                    : `relative px-3 py-1.5 whitespace-nowrap transition-colors ${currentView === 'dms' ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  style={isRetroTheme ? { color: '#234064' } : undefined}>
                   DMs
                   {dmUnread > 0 && (
                     <span className="absolute -top-0.5 right-0.5 bg-emerald-500 text-black text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
@@ -2563,6 +2695,68 @@ export default function AscendMaxx() {
             for (let i = 1; i <= totalPages; i++) {
               if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) pageNumbers.push(i);
               else if (pageNumbers[pageNumbers.length - 1] !== '...') pageNumbers.push('...');
+            }
+
+            if (isRetroTheme) {
+              return (
+                <div className="px-3 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <button style={{ color: '#2b5797', fontSize: 11 }} onClick={() => setSelectedForum(null)}>&laquo; Forums</button>
+                      <h2 style={{ fontWeight: 'bold', fontSize: 14, color: '#234064' }}>{selectedForum.name}</h2>
+                    </div>
+                    {isLoggedIn && (selectedForum.id !== 2 || isDeveloper) && (selectedForum.id !== 1 || isStaff) && (!isBannedUser || selectedForum.id === BAN_APPEALS_FORUM_ID) && (
+                      <button onClick={() => setShowNewThreadModal(true)} className={btnPrimary}>+ New Thread</button>
+                    )}
+                  </div>
+                  <table className="retro-table">
+                    <tbody>
+                      <tr>
+                        <th style={{ width: 28 }}></th>
+                        <th>Thread</th>
+                        <th style={{ width: 110 }}>Started by</th>
+                        <th className="retro-stat-col">Replies</th>
+                        <th className="retro-stat-col">Views</th>
+                        <th style={{ width: 190 }}>Last Post</th>
+                      </tr>
+                      {threadsLoading ? (
+                        <tr><td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#888' }}>Loading...</td></tr>
+                      ) : visibleThreads.length === 0 ? (
+                        <tr><td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#888' }}>No threads yet.</td></tr>
+                      ) : pageThreads.map(t => {
+                        const isPinned = pinnedIds.includes(t.id);
+                        return (
+                          <tr key={t.id} className="retro-thread retro-row" onClick={() => setViewingThread(t)}>
+                            <td style={{ textAlign: 'center' }}>{isPinned ? '📌' : '💬'}</td>
+                            <td>
+                              {isPinned && <span className="retro-badge retro-badge-sticky">STICKY</span>}
+                              {t.tag && (
+                                <span className="retro-badge" style={{ backgroundColor: t.tagColor || '#6366f1', color: '#fff' }}>{t.tag}</span>
+                              )}
+                              <a href="#" onClick={e => e.preventDefault()} style={{ fontWeight: 'bold' }}>{t.title}</a>
+                            </td>
+                            <td style={{ color: '#2b5797' }}>{t.author}</td>
+                            <td className="retro-stat-col">{t.replies || 0}</td>
+                            <td className="retro-stat-col">{t.views || 1}</td>
+                            <td style={{ fontSize: 10.5, color: '#555' }}>{t.date}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {totalPages > 1 && (
+                    <div style={{ fontSize: 11, color: '#555', marginTop: 8 }}>
+                      Page {page} of {totalPages} &nbsp;
+                      {pageNumbers.map((n, i) => n === '...' ? (
+                        <span key={`ellipsis-${i}`}>... </span>
+                      ) : (
+                        <a key={n} href="#" onClick={e => { e.preventDefault(); setForumPage(n as number); }} style={{ marginRight: 6, fontWeight: page === n ? 'bold' : 'normal' }}>{n}</a>
+                      ))}
+                      {page < totalPages && <a href="#" onClick={e => { e.preventDefault(); setForumPage(page + 1); }}>Next &raquo;</a>}
+                    </div>
+                  )}
+                </div>
+              );
             }
 
             return (
