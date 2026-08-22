@@ -2515,7 +2515,7 @@ export default function AscendMaxx() {
                 <div className="text-2xl font-bold text-white truncate" style={{ fontFamily: '"Trebuchet MS", Verdana, sans-serif', letterSpacing: '0.5px' }}>
                   Ascend<span style={{ color: '#8fc7ff' }}>Maxx</span>.me
                 </div>
-                <div className="text-[11px] truncate" style={{ color: '#b8cbe0' }}>become the best version of yourself</div>
+                <div className="text-[11px] truncate" style={{ color: '#b8cbe0' }}>The new frontier of personal optimization</div>
               </div>
             ) : (
               <span className="text-emerald-500 font-mono font-bold tracking-widest text-xl sm:text-3xl truncate">ASCENDMAXX</span>
