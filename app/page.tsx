@@ -553,8 +553,7 @@ export default function AscendMaxx() {
   const [reactionPickerType, setReactionPickerType] = useState<'thread'|'reply'>('thread');
 
   // ── Site logo ─────────────────────────────────────────────────────────────
-  const [siteLogoUrl, setSiteLogoUrl]   = useState('');
-  const [siteLogoSize, setSiteLogoSize] = useState(32); // height in px
+  const [siteLogos, setSiteLogos]       = useState<Record<string, { url: string; size: number }>>({});
   const [editingLogo, setEditingLogo]   = useState(false);
   const [logoUrlDraft, setLogoUrlDraft] = useState('');
   const [logoSizeDraft, setLogoSizeDraft] = useState(32);
@@ -914,12 +913,18 @@ export default function AscendMaxx() {
     return () => unsub();
   }, []);
 
-  // ── Site logo (from Firestore settings) ──────────────────────────────────
+  // ── Site logo (from Firestore settings, one per theme) ───────────────────
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'logo'), (snap) => {
       if (snap.exists()) {
-        setSiteLogoUrl(snap.data().url || '');
-        setSiteLogoSize(snap.data().size || 32);
+        const data = snap.data();
+        if (data.byTheme) {
+          setSiteLogos(data.byTheme);
+        } else if (data.url) {
+          // Legacy single-logo doc from before per-theme logos existed —
+          // treat it as the Default theme's logo so nothing disappears.
+          setSiteLogos({ Default: { url: data.url, size: data.size || 32 } });
+        }
       }
     });
     return () => unsub();
@@ -2366,6 +2371,9 @@ export default function AscendMaxx() {
 
   const isWhiteTheme = activeBg === '#ffffff';
   const isRetroTheme = activeBg === '#d8dfe8';
+  const currentThemeName = themes.find(t => t.bg === activeBg)?.name || 'Default';
+  const siteLogoUrl  = siteLogos[currentThemeName]?.url || '';
+  const siteLogoSize = siteLogos[currentThemeName]?.size || 32;
 
   return (
     <div className={`min-h-screen font-sans pb-16 sm:pb-0 ${isWhiteTheme ? 'theme-white' : isRetroTheme ? 'theme-retro' : 'text-zinc-200'}`} style={{ backgroundColor: activeBg }}>
@@ -2518,7 +2526,7 @@ export default function AscendMaxx() {
               <button
                 onClick={() => { setLogoUrlDraft(siteLogoUrl); setLogoSizeDraft(siteLogoSize); setEditingLogo(true); }}
                 className="hidden sm:block text-[9px] font-mono text-zinc-700 hover:text-zinc-400 transition">
-                {siteLogoUrl ? 'edit logo' : 'add logo'}
+                {siteLogoUrl ? `edit ${currentThemeName} logo` : `add ${currentThemeName} logo`}
               </button>
             )}
             <button
@@ -3328,10 +3336,13 @@ export default function AscendMaxx() {
       {editingLogo && isDeveloper && (
         <Modal onClose={() => setEditingLogo(false)} maxW="max-w-sm">
           <div className="px-5 py-3 border-b border-zinc-800 flex justify-between items-center">
-            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Site Logo</span>
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Logo — {currentThemeName} Theme</span>
             <button onClick={() => setEditingLogo(false)} className="text-zinc-600 font-mono text-sm">x</button>
           </div>
           <div className="p-5 space-y-4">
+            <p className="text-[10px] font-mono text-zinc-600 -mt-1">
+              This logo only shows when the <b>{currentThemeName}</b> theme is active. Switch themes first to set a different logo for another theme.
+            </p>
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-600 mb-1.5">Image URL</label>
               <input value={logoUrlDraft.startsWith('data:') ? '' : logoUrlDraft}
@@ -3365,14 +3376,14 @@ export default function AscendMaxx() {
               <button onClick={() => setEditingLogo(false)} className={btnSecondary}>Cancel</button>
               {siteLogoUrl && (
                 <button onClick={async () => {
-                  await setDoc(doc(db, 'settings', 'logo'), { url: '', size: 32 });
+                  await setDoc(doc(db, 'settings', 'logo'), { byTheme: { ...siteLogos, [currentThemeName]: { url: '', size: 32 } } }, { merge: true });
                   setEditingLogo(false);
                 }} className="border border-red-800 text-red-400 text-xs font-mono px-4 py-2.5 hover:bg-red-900/20 transition-colors">
                   Remove
                 </button>
               )}
               <button onClick={async () => {
-                await setDoc(doc(db, 'settings', 'logo'), { url: logoUrlDraft, size: logoSizeDraft });
+                await setDoc(doc(db, 'settings', 'logo'), { byTheme: { ...siteLogos, [currentThemeName]: { url: logoUrlDraft, size: logoSizeDraft } } }, { merge: true });
                 setEditingLogo(false);
               }} className={btnPrimary}>Save</button>
             </div>
