@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, memo, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { auth, db } from '../lib/firebase';
 import {
   createUserWithEmailAndPassword,
@@ -429,8 +430,13 @@ const MembersList = memo(function MembersList({ openProfile, presenceMap, startD
   );
 });
 
-export default function AscendMaxx() {
+function AscendMaxxApp() {
   type View = 'home' | 'forums' | 'about' | 'dms' | 'members' | 'stickers' | 'trash';
+
+  // ── Shareable URLs (?thread=… / ?forum=…) ──────────────────────────────────
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlHydrated = useRef(false);
 
   const [currentView, setCurrentView]     = useState<View>('home');
   const [selectedForum, setSelectedForum] = useState<any>(null);
@@ -528,6 +534,7 @@ export default function AscendMaxx() {
   const [presenceMap, setPresenceMap]   = useState<Record<string, boolean>>({});
 
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [showMobileLatest, setShowMobileLatest] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [activeBg, setActiveBg]               = useState('#0d0d0d');
@@ -606,6 +613,48 @@ export default function AscendMaxx() {
   // Announcement lives in settings/announcement rather than the `threads`
   // collection, so it needs its own soft-delete flag instead of deleteThread.
   const isAnnouncementDeleted = !!defaultAnnouncement?.hidden;
+
+  // ── Deep link: URL → state (runs once, after threads have loaded) ────────
+  // Lets someone open a copied link like ascendmaxx.me/?thread=abc123 and
+  // land straight on that thread instead of the homepage.
+  useEffect(() => {
+    if (urlHydrated.current || threadsLoading) return;
+    const threadId = searchParams.get('thread');
+    const forumParam = searchParams.get('forum');
+    const viewParam = searchParams.get('view') as View | null;
+
+    if (threadId) {
+      const t = threadId === 'ann-1' ? siteAnnouncement : threads.find(t => t.id === threadId);
+      if (t) {
+        const forumForThread = allForums.find(f => f.id === t.forumId) || customForums.find(f => f.id === t.forumId);
+        if (forumForThread) { setSelectedForum(forumForThread); setCurrentView('forums'); }
+        setViewingThread(t);
+      }
+    } else if (forumParam) {
+      const f = allForums.find(f => String(f.id) === forumParam) || customForums.find(f => String(f.id ?? f.firestoreId) === forumParam);
+      if (f) { setSelectedForum(f); setCurrentView('forums'); }
+    } else if (viewParam) {
+      setCurrentView(viewParam);
+    }
+    urlHydrated.current = true;
+  }, [threadsLoading, threads, customForums, searchParams]);
+
+  // ── Deep link: state → URL ────────────────────────────────────────────────
+  // Keeps the address bar in sync so the "copy link" button (and just
+  // copying the URL bar) always points at whatever's currently on screen.
+  useEffect(() => {
+    if (!urlHydrated.current) return; // don't stomp the URL before we've read it once
+    const params = new URLSearchParams();
+    if (viewingThread) {
+      params.set('thread', viewingThread.id);
+    } else if (selectedForum && currentView === 'forums') {
+      params.set('forum', String(selectedForum.id ?? selectedForum.firestoreId));
+    } else if (currentView !== 'home') {
+      params.set('view', currentView);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/?${qs}` : '/', { scroll: false });
+  }, [viewingThread, selectedForum, currentView, router]);
 
   const deleteAnnouncement = async () => {
     if (!confirm('Delete this pinned announcement?')) return;
@@ -2068,6 +2117,17 @@ export default function AscendMaxx() {
               {viewingThread.title}
             </h2>
             <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/?thread=${viewingThread.id}`;
+                  navigator.clipboard.writeText(url).then(() => {
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 1500);
+                  });
+                }}
+                className="text-[10px] font-mono text-zinc-600 hover:text-emerald-400">
+                {linkCopied ? 'Copied!' : 'Copy Link'}
+              </button>
               {isDeveloper && !isAnn && (
                 <button onClick={() => togglePin(viewingThread.id)}
                   className={`text-[10px] font-mono ${pinnedIds.includes(viewingThread.id) ? 'text-yellow-500' : 'text-zinc-600 hover:text-yellow-500'}`}>
@@ -2136,7 +2196,7 @@ export default function AscendMaxx() {
         )}
       </div>
     );
-  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, isStaff, isBannedUser, deleteReply, editThreadContent, editReplyContent, postReply, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget, ReactionBar, reactionsMap]);
+  }, [viewingThread, threadReplies, threadUserCache, isLoggedIn, replyText, postingReply, pinnedIds, isDeveloper, isStaff, isBannedUser, deleteReply, editThreadContent, editReplyContent, postReply, openProfile, repGivenMap, currentUid, giveRep, renderWithStickers, stickerTarget, ReactionBar, reactionsMap, linkCopied]);
 
   // ── StatsPanel ────────────────────────────────────────────────────────────
   const StatsPanel = useCallback(() => {
@@ -3939,5 +3999,20 @@ export default function AscendMaxx() {
         Theme
       </button>
     </div>
+  );
+}
+
+// useSearchParams() (used above for shareable thread/forum URLs) requires a
+// Suspense boundary in Next.js App Router, so the actual page export just
+// wraps the real component.
+export default function AscendMaxx() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
+        <div className="text-emerald-500 text-lg font-mono tracking-widest">ASCENDMAXX</div>
+      </div>
+    }>
+      <AscendMaxxApp />
+    </Suspense>
   );
 }
